@@ -34,6 +34,8 @@ Before proposing or making changes:
 
 A tracked nested `AGENTS.md` is justified only when a subtree has genuinely different requirements that cannot be stated clearly in the root contract. Apply instructions from the root toward the target, with the nearest tracked file taking precedence. Do not use `.agents/`, `.agent/`, `.codex/`, `.claude/`, editor settings, or caches as a second source of project policy.
 
+When new atomic documentation is appropriate, or when asked to produce whole documentation, default to storing at `docs/agent-generated/` unless otherwise requested.
+
 ## Scientific Code
 
 - Prefer clear, conventional scientific programming and generally accepted packages. Use NumPy, SciPy, pandas, scikit-learn, or another established package when its method is appropriate and can be stated plainly in a Methods section or appendix.
@@ -102,13 +104,13 @@ Every run must preserve its resolved configuration, seeds, code revision, depend
 
 Predefine reproduction criteria before expensive sweeps. Comparable results require comparable data, axes, metrics, termination rules, and regimes—not merely similar plots.
 
-## MacBook, Sol, and Hugging Face
+## Workstation, Sol, and Hugging Face
 
 Treat the three surfaces as having distinct roles.
 
-### MacBook: source, review, and analysis
+### Workstation: source, review, and analysis
 
-- Use the MacBook checkout for readable development, documentation, focused tests, tiny deterministic runs, plan construction, review, and analysis.
+- Use the workstation checkout for readable development, documentation, focused tests, tiny deterministic runs, plan construction, review, and analysis.
 - Git is the authority for code, configurations, launchers, tests, and method records. Commit dependency locks and small deterministic fixtures.
 - Keep generated corpora, checkpoints, and bulk metrics outside the source checkout. Do not make an untracked local result the only record of a scientific run.
 - Review the exact revision and immutable plan before sending work to Sol.
@@ -135,13 +137,13 @@ Treat the three surfaces as having distinct roles.
 The ordinary flow is:
 
 ```text
-MacBook reviewed code and plan
+Workstation reviewed code and plan
     -> Git revision
     -> clean Sol checkout and Slurm compute
     -> finalized scratch export
     -> private Hugging Face destination
     -> fresh checksum verification
-    -> selective retrieval to the MacBook for analysis
+    -> selective retrieval to the workstation for analysis
 ```
 
 An ad hoc `scp` copy can help with diagnosis, but it is not a substitute for the named, verified artifact path.
