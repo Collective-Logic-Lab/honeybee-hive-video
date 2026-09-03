@@ -1,0 +1,47 @@
+[project]
+name = "hive-video"
+version = "0.1.0"
+description = "Analysis tools and notebooks for Collective Logic Lab honey bee video data."
+requires-python = ">=3.12"
+dependencies = [
+    "certifi>=2026.4.22",
+    "hf>=1.14.0",
+    "ipykernel>=6.29",
+    "jupyterlab>=4.2",
+    "matplotlib>=3.8",
+    "numpy>=1.26",
+    "opencv-python>=4.13.0.92",
+    "pandas>=2.2",
+    "pillow>=12.2.0",
+    "scikit-learn>=1.5",
+    "scipy>=1.13",
+    "seaborn>=0.13",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.5",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort (import sorting)
+    "NPY",  # NumPy-specific rules
+]
+ignore = [
+    "E501", # Do not enforce line length (supports unwrapped prose in comments/docstrings)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"notebooks/**" = ["F401", "F841"]
+"experiments/**" = ["E402"]
