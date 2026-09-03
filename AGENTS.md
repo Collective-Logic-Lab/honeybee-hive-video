@@ -34,7 +34,7 @@ Before proposing or making changes:
 
 A tracked nested `AGENTS.md` is justified only when a subtree has genuinely different requirements that cannot be stated clearly in the root contract. Apply instructions from the root toward the target, with the nearest tracked file taking precedence. Do not use `.agents/`, `.agent/`, `.codex/`, `.claude/`, editor settings, or caches as a second source of project policy.
 
-When new atomic documentation is appropriate, or when asked to produce whole documentation, default to storing at `docs/agent-generated/` unless otherwise requested.
+When new atomic documentation is appropriate, or when asked to produce whole documentation, default to storing at `docs/agent-generated/` unless otherwise requested. This may extend to notebooks upon occasion, but prefer for the human contributors to participate in notebook construction.
 
 ## Scientific Code
 
