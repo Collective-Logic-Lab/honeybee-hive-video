@@ -2,21 +2,99 @@
 
 > This documentation is a work-in-progress.
 
-This folder contains video-processing and analysis tools for the [https://collective-logic-lab.github.io/](Collective Logic Lab's) honey bee collective behavior research project.
+This repository contains video-processing and analysis tools for the [https://collective-logic-lab.github.io/](Collective Logic Lab's) honey bee collective behavior research project.
 
-The current work focuses on comb-building and festoon-related behavior in the "Videos for honey bee lifetime tracking data 2019" dataset published by Smith et al. (2019), with related context from Neubauer et al. (2023), "Honey Bee Drones Are Synchronously Hyperactive inside the Nest." DOIs: [10.17617/3.LLWRWR](https://doi.org/10.17617/3.LLWRWR) for the dataset and [10.1016/j.anbehav.2023.05.018](https://doi.org/10.1016/j.anbehav.2023.05.018) for the paper.
+The current work focuses on comb-building and festoon-related behavior in the "Videos for honey bee lifetime tracking data 2019" dataset published by Smith et al. (2019), with related context from Neubauer et al. (2023), "Honey Bee Drones Are Synchronously Hyperactive inside the Nest." DOIs: [10.17617/3.LLWRWR](https://doi.org/10.17617/3.LLWRWR) for the dataset and [10.1016/j.anbehav.2023.05.018](https://doi.org/10.1016/j.anbehav.2023.05.018) for the paper. The videos are here: [https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LLWRWR](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LLWRWR).
 
-The videos are here: [https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LLWRWR](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LLWRWR).
+The present repository is a sister to another project repo from the Collective Logic Lab: [honey-bee-behavior](https://github.com/Collective-Logic-Lab/honey-bee-behavior)
+
+## Scientific Questions
+
+While we are interested in many aspects of the hive behavior, one heretofore poorly understood organizational regime within the hive is the festoon. [TODO: INSERT REFERENCES] Questions about festooning include:
+
+1. Can we segregate festoon and non-festoon regimes? With what temporal tolerances? With what error tolerances? With what accuracy?
+2. Can we locate the places in the hive where the festoon is happening, when it happens? And with what accuracy? Can we automate the location and with what error tolerances?
+3. During festooning periods, what general and temporal characteristics describe the individual bees in the colony as a whole, and also bees within the festoon as well?
+4. How can we characterize, if at all, the period leading up to the festoon as being distinct from non-festoon, non-transition periods?
+5. If we think of the festoon as a behavior regime, what triggers the switch to the new regime?
+
+## Extensions beyond Github and the development environment
 
 **Data Companion: Huggingface**
-This repository works with video files at that are extremely large. As a lab, we store processed files in [huggingface.co](hf.co) buckets. Data that we have processed for this repo lands at https://huggingface.co/buckets/collective-logic-lab/honey-bee. Note that this repository contains a data/ directory with a few empty (and `.gitkeep`-ed) folders. A distribution script pulls some example data (including anything needed to run supplied notebooks) from the hf bucket to the development environment:
+This repository works with video files at that are extremely large. As a lab, we store processed files in [huggingface.co](hf.co) buckets. Data that we have processed for this repo lands at https://huggingface.co/buckets/collective-logic-lab/honey-bee. Note that this repository contains a data/ directory with a few empty (and `.gitkeep`-ed) folders.
 
-Run this from the repository root to set up the video tools:
+**Data Processing, Slurm, and ASU High Performance Computing**
+Many of the processes in this repository are computing resource-intensive. Most of them will run on a high-end Macbook wtih 64GB for RAM, but practically speaking, high performance computing is useful for any kind of scale (and, since we are working with videos that last hours, one file represents a reasonably large such scale.) To supply sufficient computing resources, our experimental pipelines are designed for the [ASU Sol Supercomputer](https://docs.rc.asu.edu/supercomputer-hardware). The Sol job array software tool is [Slurm](https://slurm.schedmd.com/), and our scripted runs call Slurm using `bash` commands.
+
+## Repository Organization
+
+Here is the directory organization for the top two levels:
+
+```sh
+├── data                    # All code will expect data to live here, whether permanent or transient
+│   ├── artifacts           # "Official" work products derived from the code.
+│   ├── experiments         # Working and work-in-progress data; quality control
+│   └── raw                 # This should only be raw video files. Download Edmonds files to here. Comes with a sample file.
+├── docs                    # Project documentation
+│   └── agent-generated     # Documents that are entirely or near-entirely generated by LLM agents
+├── experiments             # Coding experiments and general noodling with tools
+│   └── agent-assisted      # AI assisted experiments; can become very volumnious
+├── notebooks               # Python notebooks that help explain the project
+├── src                     # "Official" project source code. This material would definitely be submitted with a paper.
+│   ├── analyze             # This code analyzes the videos to assign various features related to our scientific questions.
+│   ├── download            # This code downloads the Edmonds files in a reliable, scriptable way. Useful for end-to-end pipelines
+│   ├── pipeline            # Scripts for batch experimentation
+│   ├── resequence          # Utilities that fix the frame ordering (or attempt to!) from the jumbling in the orginal corpus.
+│   └── utils               # Various shared functions
+└── tests                   # Python tests
+```
+
+Note the `agent-` prefixed folders in some spaces. While coding agent assistance can be used elsewhere in the repository, these folders are provided in particular for agent-generated material that may not have yet been reviewed and assimilated by human investigators. Below we cover some additional coding agent topics.
+
+## Getting Started
+
+Getting started depends to some degree on what you want to do. Some users will want to simply download and resequence videos; others will want to use and extend the analytical tools. So, here we will have some general instructions for getting started with the repo; within the `src/` modules we will add in more documentation.
+
+### Prerequisites
+
+We use [uv](astral.sh/uv) for package management. While it is not mandatory to use `uv` in order to operate the modules, our support for other package managers is limited. In return, we'll attempt to be as explicit as possible about `uv` steps. It may go without saying, but you'll also (very!) likely want `git` to work with the repository. To get started, clone the repo with the following command line directives:
+
+```bash
+git clone https://github.com/Collective-Logic-Lab/honeybee-hive-video
+# and then you'll want to move to that directory, e.g.: 
+cd honeybee-hive-video
+```
+
+Next, it will be very helpful to work in a virtual environment. `uv` makes it easy to create and sync one with all the required Python dependencies by reading from the `pyproject.toml` file:
+
+```bash
+uv venv                     # creates the virtual environment
+source .venv/bin/activate   # activates it within the present command shell
+uv sync                     # downloads dependencies into the .venv structure
+```
+
+You are now ready to run scripts and notebooks within the project.
+
+> **Note:** Please do not edit the dependencies in the `pyproject` file, as they are usually managed automatically using `uv` commands.
+
+### Getting Started with Data
+
+A seed directory is hosted on the Huggingface bucket that provides example files and limited data for development and testing. In order to download data that will allow the included notebooks to run, you can run our getter script:
 
 ```bash
 cd hive_video
 uv venv
 source .venv/bin/activate
 uv sync
-uv run python get_dist_1.py
+uv run python utils/get_dist_1.py
 ```
+
+Note that **even though these data are limited, this is still a 22GB download**. Data will "land" in the `data` directories.
+
+## Coding agents
+
+This repository is designed to enable the production of scientific understanding with inputs by both human and artificial agents. All coding agents should refer to the `AGENTS.md` file before continuing to process. Note that we do *not* use hidden dot-files like `.claude/` for agent instruction at this time, as we think that these instructions should be easily visible to humans and machines alike.
+
+To-date, the primary coding agents that have been used on this repository are codex/gpt-5.5 and codex/gpt-5.6-sol, generally on higher reasoning settings. Gemini Flash (3.5, 3.7, 3.8) is also used from time to time for basics like formatting.
+
+For humans, one important thing to know is that we will try and keep the markdown documentation (like this file) as well as any notebooks as primarily human-generated.
