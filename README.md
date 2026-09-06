@@ -1,5 +1,7 @@
 # Honeybee Hive Video
 
+<!-- We want to be able to control image width and format, so: -->
+<!-- markdownlint-disable-next-line MD033 -->
 <img src="public/image.png" alt="Hive video motion regime overlay" width="400" />
 
 .
@@ -25,7 +27,7 @@ While we are interested in many aspects of the hive behavior, one heretofore poo
 ## Extensions beyond Github and the development environment
 
 **Data Companion: Huggingface**
-This repository works with video files at that are extremely large. As a lab, we store processed files in [huggingface.co](hf.co) buckets. Data that we have processed for this repo lands at https://huggingface.co/buckets/collective-logic-lab/honey-bee. Note that this repository contains a data/ directory with a few empty (and `.gitkeep`-ed) folders.
+This repository works with video files at that are extremely large. As a lab, we store processed files in [huggingface.co](hf.co) buckets. Data that we have processed for this repo lands at [https://huggingface.co/buckets/collective-logic-lab/honey-bee](https://huggingface.co/buckets/collective-logic-lab/honey-bee). Note that this repository contains a data/ directory with a few empty (and `.gitkeep`-ed) folders.
 
 **Data Processing, Slurm, and ASU High Performance Computing**
 Many of the processes in this repository are computing resource-intensive. Most of them will run on a high-end Macbook wtih 64GB for RAM, but practically speaking, high performance computing is useful for any kind of scale (and, since we are working with videos that last hours, one file represents a reasonably large such scale.) To supply sufficient computing resources, our experimental pipelines are designed for the [ASU Sol Supercomputer](https://docs.rc.asu.edu/supercomputer-hardware). The Sol job array software tool is [Slurm](https://slurm.schedmd.com/), and our scripted runs call Slurm using `bash` commands.
