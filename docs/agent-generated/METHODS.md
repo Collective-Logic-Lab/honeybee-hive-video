@@ -2,6 +2,20 @@
 
 This file records consequential analysis choices used by the video pipeline. Each entry is intended to make the implemented rule, its evidence, and its revision triggers auditable.
 
+## HV-F001: Portable video fragment extraction
+
+Status: adopted for issue #5 implementation, 2026-09-06.
+
+Decision: the public `hive_video` fragment API takes explicit local source and output paths. Frame indices are zero-based and intervals exclude their stop index. Seconds use the nominal source frame clock: select indices from `ceil(start * fps)` through `ceil((start + duration) * fps)`, excluding the latter. A zero or omitted duration selects one PNG at `ceil(start * fps)`. Reject positive intervals containing no frames, incomplete intervals, and invalid rates; never clamp or substitute 25 fps. Inputs must report equal positive nominal and average frame rates. This metadata screen does not independently establish constant presentation timestamps; seconds denote the nominal frame clock, not absolute recording time.
+
+Rationale and evidence: the repository seed and local resequenced Start 04 video both report 25 fps. Existing compression and review helpers change omitted-duration semantics, tolerate timing differences, or resize frames. A direct sequential FFmpeg frame-trim path gives an inspectable reference with exact ordinal selection. Tests will compare selected frame content and output frame counts on deterministic clips, including fractional frame rates and endpoints.
+
+The derivative preserves stored pixel dimensions without automatic rotation. PNG uses decoded RGB; MP4 uses video stream zero, H.264 CRF 18, medium preset, yuv420p, and no audio. MP4 is a lossy viewing derivative. Existing media or sidecars are never overwritten. A JSON sidecar records source path/stat/probe, resolved interval, software identity, encoding settings, and the derivative checksum; it does not claim a whole-source content checksum. Shorthand selection requires an explicit search root and fails on multiple matching raw or resequenced copies.
+
+Alternatives and sensitivity: timestamp seeking can be faster but requires equivalence checks before replacing the sequential reference. Rounding can change a boundary by less than one frame, and raw versus resequenced source choice changes chronology. Lossy encoding can affect pixel measurements. The full-source hash is omitted to avoid reading multi-gigabyte inputs solely for an ad hoc fragment; identified scientific runs still need their upstream immutable artifact records.
+
+Affected scope: new fragment calls only; existing analysis, downloads, resequencing, and scheduled plans retain their methods. Revisit for variable-rate recordings, lossless analytical derivatives, measured long-video extraction costs, or a demonstrated need for audio or alternate geometry handling.
+
 ## HV-R001: Automatic QC for resequenced segment joins
 
 **Status:** provisional production screen, 2026-07-26
@@ -102,4 +116,3 @@ As in HV-R002, Stage 1 proposals are deliberately labeled `cut_review_status=unr
 Scratch, submission records, and Stage 1a evidence are isolated under `start03_start38_both_sides_top_v1`. Cleared deliverables use the ordinary inventory layout: archival bundles under `resequenced/reseq_<key>/` and share derivatives under `resequenced/compressed/reseq_<key>/low/`. Separating these storage destinations is an organization decision, not an upgrade of the `unreviewed_pilot` validation status. The shared raw-download directory remains safe because completed files are size- and MD5-verified. The held download array is released only after the incremental submission record has been published and verified under the pilot-evidence prefix.
 
 **Revisit when.** Inspect the filed source-cut tables and any flagged join rolls before treating canonical-path results as validated inventory. Record the four-video automatic-clear rate as additional yield evidence, not as a calibrated population success estimate.
-

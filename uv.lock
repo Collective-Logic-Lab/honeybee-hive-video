@@ -681,8 +681,13 @@ wheels = [
 [[package]]
 name = "hive-video"
 version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
+source = { editable = "." }
+
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+research = [
     { name = "certifi" },
     { name = "hf" },
     { name = "ipykernel" },
@@ -697,13 +702,11 @@ dependencies = [
     { name = "seaborn" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "ruff" },
-]
-
 [package.metadata]
-requires-dist = [
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.5" }]
+research = [
     { name = "certifi", specifier = ">=2026.4.22" },
     { name = "hf", specifier = ">=1.14.0" },
     { name = "ipykernel", specifier = ">=6.29" },
@@ -717,9 +720,6 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.13" },
     { name = "seaborn", specifier = ">=0.13" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.5" }]
 
 [[package]]
 name = "httpcore"
