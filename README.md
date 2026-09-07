@@ -68,6 +68,7 @@ Install the package using Python 3.12 or newer:
 
 ```bash
 uv tool install hive-video
+hive-video --version
 hive-video --help
 ```
 
@@ -156,6 +157,22 @@ uv add hive-video
 ```
 
 Use `uv add 'hive-video[resequence]'` to include resequencing support. This records the dependency in your project's `pyproject.toml`, updates its `uv.lock`, and installs the library in its environment. Commit both files with your project. Python imports use this environment, so add the dependency even if you have already installed the separate CLI with `uv tool install`. The distribution is named `hive-video`; Python imports use `hive_video`.
+
+In a Jupyter notebook with a Python kernel, install into the notebook's environment with this cell:
+
+```ipython
+%pip install hive-video
+```
+
+Use `%pip install "hive-video[resequence]"` to include resequencing. In the next cell, check the imported package's version:
+
+```python
+import hive_video
+
+print(hive_video.__version__)
+```
+
+This confirms that the notebook can import the package and shows which version it loaded. If you upgrade after importing it, restart the kernel before checking again. The terminal equivalent is `hive-video --version` (available from v0.1.1).
 
 For example, download the video from day 22, side 0, top panel into a local folder, then generate ten 30-second clips (fragments) starting consecutively:
 

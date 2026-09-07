@@ -1,6 +1,6 @@
 [project]
 name = "hive-video"
-version = "0.1.0"
+version = "0.1.1"
 description = "Portable download, resequencing, and fragment tools for honey bee hive video."
 readme = "docs/agent-generated/package-readme.md"
 license = "MIT"

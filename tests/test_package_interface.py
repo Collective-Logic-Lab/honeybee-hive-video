@@ -10,10 +10,41 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from hive_video import cli
+from hive_video import __version__, cli
 
 
 class PackageInterfaceTests(unittest.TestCase):
+    def test_version_exits_successfully_without_preparing_binaries(self) -> None:
+        with (
+            mock.patch("hive_video._binaries.setup_ffmpeg") as setup,
+            contextlib.redirect_stdout(io.StringIO()) as stdout,
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            cli.main(["--version"])
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(stdout.getvalue(), f"hive-video {__version__}\n")
+        self.assertEqual(stderr.getvalue(), "")
+        setup.assert_not_called()
+
+    def test_module_version_runs_without_optional_dependencies_outside_checkout(self) -> None:
+        code = (
+            "import runpy, sys; "
+            "sys.modules.update(dict.fromkeys(['numpy', 'cv2', 'PIL', 'portable_ffmpeg'])); "
+            "sys.argv = ['hive-video', '--version']; "
+            "runpy.run_module('hive_video', run_name='__main__')"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, "-c", code],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"hive-video {__version__}\n")
+        self.assertEqual(result.stderr, "")
+
     def test_setup_ffmpeg_prints_binary_identity_json(self) -> None:
         binaries = {
             name: {"path": f"/cache/{name}", "version": "8.0", "sha256": "a" * 64}

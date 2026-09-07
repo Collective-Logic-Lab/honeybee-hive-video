@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from . import __version__
 from .fragment import create_fragment
 from .progress import BeeProgress
 from .sources import fragment_filename, resolve_source
@@ -17,6 +18,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hive-video",
         description="Local, reproducible utilities for honey bee hive video.",
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     commands = parser.add_subparsers(dest="command", required=True)
     fragment = commands.add_parser(
