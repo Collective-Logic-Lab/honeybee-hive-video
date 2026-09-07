@@ -47,12 +47,15 @@ The command groups are `fragment`, `download`, and `resequence`; `setup-ffmpeg` 
 
 ```bash
 hive-video --help
+hive-video --version
 hive-video fragment --help
 hive-video download --help
 hive-video resequence --help
 hive-video resequence detect --help
 hive-video setup-ffmpeg --help
 ```
+
+`hive-video --version` (available from v0.1.1) prints the package name and version, then exits successfully. `python -m hive_video --version` uses the selected Python interpreter's installation. In Python or a notebook, use `import hive_video; print(hive_video.__version__)` to check the imported package's version. These checks do not prepare FFmpeg or require the resequencing extra.
 
 Extract one zero-based frame, or a 25-frame interval, from a local video:
 

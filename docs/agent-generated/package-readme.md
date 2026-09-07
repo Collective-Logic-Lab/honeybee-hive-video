@@ -14,6 +14,7 @@ Use Python 3.12 or newer. To install the command-line tools with `uv`:
 
 ```bash
 uv tool install hive-video
+hive-video --version
 hive-video --help
 ```
 
@@ -49,7 +50,17 @@ Add the library to the project that will import it:
 uv add hive-video
 ```
 
-Use `uv add 'hive-video[resequence]'` if you also need resequencing. Then download a recording and extract a clip:
+Use `uv add 'hive-video[resequence]'` if you also need resequencing. In a Jupyter notebook, install into the current Python kernel with `%pip install hive-video` or `%pip install "hive-video[resequence]"`, then check the version in the next cell:
+
+```python
+import hive_video
+
+print(hive_video.__version__)
+```
+
+Restart the kernel if you upgraded the package after importing it. This checks the package import and loaded version. The terminal equivalent is `hive-video --version` (available from v0.1.1).
+
+Then download a recording and extract a clip:
 
 ```python
 from pathlib import Path
