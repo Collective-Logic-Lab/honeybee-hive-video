@@ -78,7 +78,7 @@ echo "estimated total frames: ${TOTAL_FRAMES}"
 echo
 
 hv_time_step "detect_${SMOKE_FRAMES}_frames" \
-  uv run --no-sync python src/resequence/detect_video_discontinuities.py \
+  uv run --no-sync python -m hive_video.resequence.detect_video_discontinuities \
     "${RESEQ_PATH}" \
     --out "${SMOKE_DIR}/qc" \
     --max-frames "${SMOKE_FRAMES}" \
@@ -86,17 +86,17 @@ hv_time_step "detect_${SMOKE_FRAMES}_frames" \
     --progress-every-seconds "${PROGRESS_EVERY_SECONDS:-60}"
 
 hv_time_step "summarize_jump_events" \
-  uv run --no-sync python src/resequence/summarize_jump_events.py \
+  uv run --no-sync python -m hive_video.resequence.summarize_jump_events \
     --candidates "${SMOKE_DIR}/qc/candidates.csv" \
     --out "${SMOKE_DIR}/qc/jump_events.csv"
 
 hv_time_step "prepare_cut_review" \
-  uv run --no-sync python src/resequence/prepare_cut_review.py \
+  uv run --no-sync python -m hive_video.resequence.prepare_cut_review \
     --events "${SMOKE_DIR}/qc/jump_events.csv" \
     --out "${SMOKE_DIR}/qc/cut_review.smoke.csv"
 
 hv_time_step "build_segments" \
-  uv run --no-sync python src/resequence/build_segments_from_jumps.py \
+  uv run --no-sync python -m hive_video.resequence.build_segments_from_jumps \
     "${RESEQ_PATH}" \
     --jumps "${SMOKE_DIR}/qc/cut_review.smoke.csv" \
     --input-kind cut-review \
@@ -104,7 +104,7 @@ hv_time_step "build_segments" \
     --out "${SMOKE_DIR}/segments/segments.csv"
 
 hv_time_step "order_segments" \
-  uv run --no-sync python src/resequence/order_video_segments.py \
+  uv run --no-sync python -m hive_video.resequence.order_video_segments \
     --segments "${SMOKE_DIR}/segments/segments.csv" \
     --out "${SMOKE_DIR}/order" \
     --window-frames 10 \
@@ -112,7 +112,7 @@ hv_time_step "order_segments" \
     --top-k 10
 
 hv_time_step "auto_qc_segment_joins" \
-  uv run --no-sync python src/resequence/diagnostics/auto_qc_segment_joins.py \
+  uv run --no-sync python -m hive_video.resequence.diagnostics.auto_qc_segment_joins \
     "${RESEQ_PATH}" \
     --segments "${SMOKE_DIR}/segments/segments.csv" \
     --order-csv "${SMOKE_DIR}/order/greedy_order.csv" \
@@ -125,7 +125,7 @@ hv_time_step "auto_qc_segment_joins" \
 # Always render the full bounded review in the smoke job so this path is tested
 # even when the automatic decision passes.
 hv_time_step "join_review_video" \
-  uv run --no-sync python src/resequence/diagnostics/make_join_review_video.py \
+  uv run --no-sync python -m hive_video.resequence.diagnostics.make_join_review_video \
     "${RESEQ_PATH}" \
     --ranked-edges "${SMOKE_DIR}/order/ranked_edges.csv" \
     --segments "${SMOKE_DIR}/segments/segments.csv" \
@@ -134,7 +134,7 @@ hv_time_step "join_review_video" \
     --seconds-each-side 0.5
 
 hv_time_step "reassemble_${SMOKE_FRAMES}_frames" \
-  uv run --no-sync python src/resequence/reassemble_video_from_segments.py \
+  uv run --no-sync python -m hive_video.resequence.reassemble_video_from_segments \
     --segments "${SMOKE_DIR}/segments/segments.csv" \
     --ranked-edges "${SMOKE_DIR}/order/ranked_edges.csv" \
     --order-csv "${SMOKE_DIR}/order/greedy_order.csv" \

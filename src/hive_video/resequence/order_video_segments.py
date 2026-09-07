@@ -13,6 +13,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hive_video._binaries import resolve_binary
+
 
 @dataclass(frozen=True)
 class Segment:
@@ -22,8 +24,9 @@ class Segment:
     end_frame_idx: int
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence order",
         description=(
             "Compare the last N frames of each segment with the first N frames of every "
             "other segment and propose a greedy ordering."
@@ -58,7 +61,7 @@ def parse_args() -> argparse.Namespace:
             "frame sequence; 'mean' and 'median' collapse the window pixelwise."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_json(cmd: list[str]) -> dict:
@@ -75,7 +78,7 @@ def parse_fps(value: str) -> float:
 def probe_video(video: Path) -> tuple[int, int, float]:
     data = run_json(
         [
-            "ffprobe",
+            resolve_binary("ffprobe"),
             "-v",
             "quiet",
             "-print_format",
@@ -112,7 +115,7 @@ def comparison_size(source_width: int, source_height: int, sample_width: int) ->
 
 def extract_frame(video: Path, frame_idx: int, fps: float, width: int, height: int) -> np.ndarray:
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-v",
         "quiet",
         "-ss",
@@ -135,7 +138,7 @@ def extract_frame(video: Path, frame_idx: int, fps: float, width: int, height: i
         # Timestamp seeking can fail at the final frames of some MP4s. Fall back
         # to exact frame selection before treating the frame as missing.
         exact_cmd = [
-            "ffmpeg",
+            resolve_binary("ffmpeg"),
             "-v",
             "quiet",
             "-i",
@@ -308,8 +311,8 @@ def write_order(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     segments_path = args.segments.expanduser().resolve()
     out_dir = args.out.expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

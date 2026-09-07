@@ -9,8 +9,9 @@ import statistics
 from pathlib import Path
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence summarize",
         description=(
             "Group frame-to-frame jump candidates into events. Consecutive candidate rows "
             "whose prev_frame_idx values are close together become one event."
@@ -39,7 +40,7 @@ def parse_args() -> argparse.Namespace:
         default="avg_diff",
         help="How to sort events in the output.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def seconds_to_mmss(seconds: float) -> str:
@@ -154,8 +155,8 @@ def write_events(path: Path, rows: list[dict]) -> None:
             writer.writerow(out)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     candidates = args.candidates.expanduser().resolve()
     out = args.out.expanduser().resolve()
 

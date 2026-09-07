@@ -150,7 +150,7 @@ uv run --no-sync python -c '
 import json
 from pathlib import Path
 import sys
-from src.resequence.diagnostics.auto_qc_segment_joins import validate_summary_inputs
+from hive_video.resequence.diagnostics.auto_qc_segment_joins import validate_summary_inputs
 
 summary_path = Path(sys.argv[1])
 summary = json.loads(summary_path.read_text())
@@ -181,7 +181,7 @@ case "${AUTO_QC_DECISION}" in
   manual_review_required)
     hv_require_file "${AUTO_QC_APPROVAL}" \
       "Flagged join QC has no manual approval; refusing to publish it as validated."
-    uv run --no-sync python src/resequence/diagnostics/approve_manual_join_qc.py check \
+    uv run --no-sync python -m hive_video.resequence.diagnostics.approve_manual_join_qc check \
       --summary "${AUTO_QC_SUMMARY}" \
       --approval "${AUTO_QC_APPROVAL}"
     APPROVAL_FINGERPRINT="$(hv_file_fingerprint "${AUTO_QC_APPROVAL}")"
@@ -201,7 +201,9 @@ CURRENT_REASSEMBLE_PREFIX="${CURRENT_REASSEMBLE_PREFIX}|ranked=$(hv_file_fingerp
 CURRENT_REASSEMBLE_PREFIX="${CURRENT_REASSEMBLE_PREFIX}|order=$(hv_file_fingerprint \
   "${GREEDY_ORDER}")"
 CURRENT_REASSEMBLE_PREFIX="${CURRENT_REASSEMBLE_PREFIX}|tool=$(hv_file_fingerprint \
-  src/resequence/reassemble_video_from_segments.py)"
+  src/hive_video/resequence/reassemble_video_from_segments.py)"
+CURRENT_REASSEMBLE_PREFIX="${CURRENT_REASSEMBLE_PREFIX}|binary_resolver=$(hv_file_fingerprint \
+  src/hive_video/_binaries.py)"
 CURRENT_REASSEMBLE_PREFIX="${CURRENT_REASSEMBLE_PREFIX}|stage1a=$(hv_file_fingerprint \
   "${STAGE1A_DONE}")"
 CURRENT_REASSEMBLE_PREFIX="${CURRENT_REASSEMBLE_PREFIX}|auto_qc=${AUTO_QC_FINGERPRINT}"
@@ -276,7 +278,7 @@ esac
 cat >"${STAGING}/README.md" <<EOF
 # ${KEY}
 
-Resequenced hive video produced by \`hive_video/src/resequence\`.
+Resequenced hive video produced by \`hive_video.resequence\`.
 
 - \`CURRENT_ARTIFACTS.json\` is the authoritative current file set. This bucket
   sync is deliberately non-deleting; any unlisted object is superseded.

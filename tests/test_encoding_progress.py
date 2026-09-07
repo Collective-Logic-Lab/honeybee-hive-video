@@ -7,7 +7,7 @@ import time
 import unittest
 from unittest import mock
 
-from hive_video.fragments import _run_encoding
+from hive_video.fragment import _run_encoding
 
 
 class EncodingProgressTests(unittest.TestCase):
@@ -48,7 +48,7 @@ class EncodingProgressTests(unittest.TestCase):
                 started = time.monotonic()
                 try:
                     with mock.patch(
-                        "hive_video.fragments.subprocess.Popen", side_effect=start_child
+                        "hive_video.fragment.subprocess.Popen", side_effect=start_child
                     ):
                         with self.assertRaises(type(failure)) as raised:
                             _run_encoding(command, stop_callback, 4)
@@ -88,7 +88,7 @@ class EncodingProgressTests(unittest.TestCase):
 
         events = []
         try:
-            with mock.patch("hive_video.fragments.subprocess.Popen", side_effect=start_child):
+            with mock.patch("hive_video.fragment.subprocess.Popen", side_effect=start_child):
                 with self.assertRaises(RuntimeError) as raised:
                     _run_encoding(command, lambda *event: events.append(event), 2)
             self.assertIn("exit 7", str(raised.exception))

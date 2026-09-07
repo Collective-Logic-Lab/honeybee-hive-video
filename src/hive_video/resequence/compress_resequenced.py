@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from hive_video._binaries import resolve_binary
+
 PROFILE_CRF = {
     "high": 18,
     "medium": 23,
@@ -25,8 +27,10 @@ PROFILE_CRF = {
 METADATA_SCHEMA_VERSION = 1
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="hive-video resequence compress", description=__doc__
+    )
     parser.add_argument("input", type=Path, help="Completed resequenced MP4.")
     parser.add_argument("--out", type=Path, required=True, help="Compressed MP4 path.")
     parser.add_argument(
@@ -71,7 +75,7 @@ def parse_args() -> argparse.Namespace:
         help="Sidecar JSON path. Defaults beside --out.",
     )
     parser.add_argument("--overwrite", action="store_true")
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_json(command: list[str]) -> dict[str, Any]:
@@ -88,7 +92,7 @@ def fps_as_float(value: str) -> float:
 def probe_video(path: Path) -> dict[str, Any]:
     payload = run_json(
         [
-            "ffprobe",
+            resolve_binary("ffprobe"),
             "-v",
             "error",
             "-select_streams",
@@ -237,7 +241,7 @@ def build_ffmpeg_command(
     duration_seconds: float | None,
     threads: int | None,
 ) -> list[str]:
-    command = ["ffmpeg", "-hide_banner", "-y", "-v", "error", "-i", str(source)]
+    command = [resolve_binary("ffmpeg"), "-hide_banner", "-y", "-v", "error", "-i", str(source)]
     if start_seconds:
         command.extend(["-ss", f"{start_seconds:.6f}"])
     if duration_seconds is not None:
@@ -422,8 +426,8 @@ def compress(
     return {"skipped": False, "output": output_probe, "metadata": metadata}
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     out = args.out.expanduser()
     metadata_out = args.metadata_out or out.with_suffix(".compression.json")
     compress(

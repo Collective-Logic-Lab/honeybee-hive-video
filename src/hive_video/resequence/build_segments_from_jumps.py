@@ -10,9 +10,12 @@ import math
 import subprocess
 from pathlib import Path
 
+from hive_video._binaries import resolve_binary
 
-def parse_args() -> argparse.Namespace:
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence build-segments",
         description="Create a segments CSV from discontinuity candidates."
     )
     parser.add_argument("video", type=Path, help="Input video file.")
@@ -77,7 +80,7 @@ def parse_args() -> argparse.Namespace:
             "the ranked event selection."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_json(cmd: list[str]) -> dict:
@@ -94,7 +97,7 @@ def parse_fps(value: str) -> float:
 def probe_video(video: Path, count_frames: bool = False) -> tuple[int | None, float, float | None]:
     print(f"probing video metadata: {video}", flush=True)
     cmd = [
-        "ffprobe",
+        resolve_binary("ffprobe"),
         "-v",
         "quiet",
         "-print_format",
@@ -248,8 +251,8 @@ def write_segments(
     out_path.with_suffix(".metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     video = args.video.expanduser().resolve()
     jumps = args.jumps.expanduser().resolve()
     out = args.out.expanduser().resolve()

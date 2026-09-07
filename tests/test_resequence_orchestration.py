@@ -13,14 +13,15 @@ from unittest import mock
 import cv2
 import numpy as np
 
-from src.resequence import (
+from hive_video._binaries import resolve_binary
+from hive_video.resequence import (
     build_segments_from_jumps,
     compress_resequenced,
     detect_video_discontinuities,
     prepare_cut_review,
     reassemble_video_from_segments,
 )
-from src.resequence.diagnostics import (
+from hive_video.resequence.diagnostics import (
     approve_manual_join_qc,
     auto_qc_segment_joins,
     make_join_review_video,
@@ -245,10 +246,8 @@ class ExactOrderReviewTests(unittest.TestCase):
             )
             command = [
                 sys.executable,
-                str(
-                    Path(__file__).parents[1]
-                    / "src/resequence/diagnostics/make_join_review_video.py"
-                ),
+                "-m",
+                "hive_video.resequence.diagnostics.make_join_review_video",
                 str(source),
                 "--ranked-edges",
                 str(ranked),
@@ -268,7 +267,7 @@ class ExactOrderReviewTests(unittest.TestCase):
             self.assertGreater(out.stat().st_size, 0)
             dimensions = subprocess.check_output(
                 [
-                    "ffprobe",
+                    resolve_binary("ffprobe"),
                     "-v",
                     "error",
                     "-select_streams",
@@ -510,10 +509,8 @@ class ExactOrderReviewTests(unittest.TestCase):
             subprocess.run(
                 [
                     sys.executable,
-                    str(
-                        Path(__file__).parents[1]
-                        / "src/resequence/diagnostics/make_join_review_video.py"
-                    ),
+                    "-m",
+                    "hive_video.resequence.diagnostics.make_join_review_video",
                     str(source),
                     "--ranked-edges",
                     str(ranked),
@@ -987,10 +984,8 @@ class RestartValidationTests(unittest.TestCase):
             out = root / "output" / "reseq.mp4"
             command = [
                 sys.executable,
-                str(
-                    Path(__file__).parents[1]
-                    / "src/resequence/reassemble_video_from_segments.py"
-                ),
+                "-m",
+                "hive_video.resequence.reassemble_video_from_segments",
                 "--segments",
                 str(segments),
                 "--ranked-edges",
@@ -1027,10 +1022,8 @@ class RestartValidationTests(unittest.TestCase):
             safeword.write_text("sea cucumber\n")
             command = [
                 sys.executable,
-                str(
-                    Path(__file__).parents[1]
-                    / "src/resequence/reassemble_video_from_segments.py"
-                ),
+                "-m",
+                "hive_video.resequence.reassemble_video_from_segments",
                 "--segments",
                 str(segments),
                 "--ranked-edges",
@@ -1443,7 +1436,7 @@ class EndToEndPilotLauncherTests(unittest.TestCase):
         self.assertIn('scontrol release "${DOWNLOAD_JOB}"', text)
         for readme in (
             repository / "README.md",
-            repository / "src/resequence/README.md",
+            repository / "docs/agent-generated/resequencing.md",
         ):
             self.assertIn("resequence_pipeline_sample.sh", readme.read_text())
 

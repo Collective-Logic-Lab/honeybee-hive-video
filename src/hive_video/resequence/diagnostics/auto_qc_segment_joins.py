@@ -14,7 +14,6 @@ import hashlib
 import json
 import math
 import os
-import sys
 import tempfile
 import time
 from collections import Counter
@@ -25,12 +24,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import cv2
 
-try:
-    from src.resequence import detect_video_discontinuities as detector
-except ModuleNotFoundError:  # Support direct execution by file path.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from src.resequence import detect_video_discontinuities as detector
-
+from .. import detect_video_discontinuities as detector
 
 METHOD_NAME = "detector_gray_one_frame_segment_join_qc"
 METHOD_VERSION = "1.0"
@@ -107,6 +101,7 @@ class JoinScore:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence qc",
         description=(
             "Score each selected segment join at the discontinuity detector's grayscale "
             "resolution and flag joins that need manual review."

@@ -44,7 +44,7 @@ LOCATOR="$(hv_locator_for_task "${LOCATORS}" "${SLURM_ARRAY_TASK_ID:-0}")"
 echo "Downloading ${LOCATOR} into ${DOWNLOAD_DIR}"
 
 COMMAND=(
-  uv run --no-sync python src/download/download_raw.py
+  uv run --no-sync python -m hive_video.download
   --locator "${LOCATOR}"
   --target "${DOWNLOAD_DIR}"
   --progress-every-seconds "${PROGRESS_EVERY_SECONDS:-120}"

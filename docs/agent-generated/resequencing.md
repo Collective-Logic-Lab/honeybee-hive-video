@@ -1,6 +1,6 @@
 # Resequencing
 
-These scripts repair shuffled hive videos by detecting visual discontinuities, turning those discontinuities into source segments, ordering the segments, and rendering a captioned review video. They are written as command-line tools and are intended to be run from the `hive_video/` directory with `uv run python`.
+The `hive_video.resequence` package repairs shuffled hive videos by detecting visual discontinuities, turning those discontinuities into source segments, ordering the segments, and rendering a captioned review video. The [package interface](package-interface.md) describes `hive-video resequence` and Python access. Cluster workers invoke these installed modules directly with `python -m`.
 
 ## Quickstart
 
@@ -51,7 +51,7 @@ bash src/pipeline/slurm/resequence/submit_start01_start02_side0_top_e2e_v2.sh
 
 ## Where things live
 
-- `src/resequence/` contains reusable Python implementation and diagnostic modules. These should remain runnable outside Slurm.
+- `src/hive_video/resequence/` contains reusable Python implementation and diagnostic modules, runnable outside Slurm.
 - `src/pipeline/slurm/resequence/` contains all cluster orchestration for this workflow: job arrays, smoke tests, upload and compression jobs, and versioned parent launchers. Put additional resequencing Slurm scripts here.
 - `data/qc/resequence/reseq_<key>/` contains selectively copied local review artifacts, organized into `qc/`, `segments/`, `order/`, and `review/`.
 
@@ -81,7 +81,7 @@ The rest of this document describes the underlying tools, which is what you want
 
 ## Underlying tools
 
-The current pipeline is:
+The modules below live under `hive_video.resequence`; invoke a module with, for example, `uv run --no-sync python -m hive_video.resequence.detect_video_discontinuities --help`. The current pipeline is:
 
 1. `detect_video_discontinuities.py` Compute frame-to-frame visual distances from a raw MP4. This produces ranked candidate cuts and, optionally, all frame-to-frame distances or candidate JPEGs (`--write-candidate-frames`).
 
@@ -97,7 +97,7 @@ The current pipeline is:
 
 ## Diagnostics
 
-The `diagnostics/` directory contains tools used to validate or review the pipeline rather than produce the final video directly.
+The `hive_video.resequence.diagnostics` package contains tools used to validate or review the pipeline rather than produce the final video directly.
 
 - `diagnostics/diagnose_segment_discontinuities.py` Scores frame-to-frame distances inside specified source segments or source frame ranges. Use this to justify any forced cuts added to segment production.
 
@@ -133,4 +133,3 @@ Production runs use one work root per source video on Sol:
 The cleaned local review copies in `data/qc/resequence/` mirror the first four directories. A `qc/candidates/` JPEG directory may still appear in older runs; current Stage 1 creates those images only when `--write-candidate-frames` is explicitly enabled.
 
 Large videos, compressed derivatives, and generated part files should stay out of git.
-

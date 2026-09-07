@@ -129,8 +129,9 @@ def validate_approval(summary_path: Path, approval_path: Path) -> tuple[bool, st
     return True, f"Manual join review approved by {reviewer}."
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence approve",
         description="Create or validate a manual approval for a flagged join-QC report."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -144,11 +145,11 @@ def parse_args() -> argparse.Namespace:
     check = subparsers.add_parser("check", help="Validate an existing approval.")
     check.add_argument("--summary", type=Path, required=True)
     check.add_argument("--approval", type=Path, required=True)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     if args.command == "create":
         approval = create_approval(args.summary, args.out, args.reviewer, args.note)
         print(f"wrote manual join-QC approval: {args.out.expanduser().resolve()}")

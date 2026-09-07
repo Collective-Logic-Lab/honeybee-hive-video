@@ -168,7 +168,7 @@ for locator in ${LOCATORS}; do
     PROBE_OPTIONS+=(--refresh-manifest)
     REFRESH_MANIFEST=0
   fi
-  uv run --no-sync python src/download/download_raw.py \
+  uv run --no-sync python -m hive_video.download \
     --locator "${locator}" \
     --target "${DOWNLOAD_DIR}" \
     --probe-only \

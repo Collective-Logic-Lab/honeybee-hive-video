@@ -52,7 +52,7 @@ hv_require_file "${FINAL_VIDEO}" \
 mkdir -p "${COMPRESSED_DIR}"
 
 hv_time_step "compress_${QUALITY}" \
-  uv run --no-sync python src/resequence/compress_resequenced.py \
+  uv run --no-sync python -m hive_video.resequence.compress_resequenced \
     "${FINAL_VIDEO}" \
     --out "${COMPRESSED_VIDEO}" \
     --metadata-out "${COMPRESSED_METADATA}" \

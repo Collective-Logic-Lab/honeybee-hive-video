@@ -64,7 +64,7 @@ for quality in ${QC_QUALITIES}; do
   OUTPUT="${SMOKE_DIR}/qc_roll_${RESEQ_KEY}.${quality}.mp4"
   METADATA="${SMOKE_DIR}/qc_roll_${RESEQ_KEY}.${quality}.compression.json"
   hv_time_step "compress_qc_roll_${quality}" \
-    uv run --no-sync python src/resequence/compress_resequenced.py \
+    uv run --no-sync python -m hive_video.resequence.compress_resequenced \
       "${QC_ROLL}" \
       --out "${OUTPUT}" \
       --metadata-out "${METADATA}" \

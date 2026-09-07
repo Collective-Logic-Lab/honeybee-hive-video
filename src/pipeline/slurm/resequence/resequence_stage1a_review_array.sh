@@ -94,14 +94,16 @@ mkdir -p "${HV_SEG_DIR}" "${HV_ORDER_DIR}" "${HV_REVIEW_DIR}"
 
 CUTS_FINGERPRINT="$(hv_file_fingerprint "${CUTS}")"
 SEGMENTS_SIGNATURE="v3|cuts=${CUTS_FINGERPRINT}|tool=$(hv_file_fingerprint \
-  src/resequence/build_segments_from_jumps.py)|frame_count=${FRAME_COUNT:-auto}"
+  src/hive_video/resequence/build_segments_from_jumps.py)|frame_count=${FRAME_COUNT:-auto}"
+SEGMENTS_SIGNATURE="${SEGMENTS_SIGNATURE}|binary_resolver=$(hv_file_fingerprint \
+  src/hive_video/_binaries.py)"
 SEGMENTS_SIGNATURE="${SEGMENTS_SIGNATURE}|count_frames=${COUNT_FRAMES:-0}"
 
 if hv_step_needed "${SEGMENTS_DONE}" "${SEGMENTS_SIGNATURE}" "${SEGMENTS}"; then
   rm -f \
     "${SEGMENTS_DONE}" "${ORDER_DONE}" "${AUTO_QC_DONE}" "${REVIEW_DONE}" "${STAGE1A_DONE}"
   BUILD_SEGMENTS=(
-    uv run --no-sync python src/resequence/build_segments_from_jumps.py
+    uv run --no-sync python -m hive_video.resequence.build_segments_from_jumps
     "${RESEQ_PATH}"
     --jumps "${CUTS}"
     --input-kind cut-review
@@ -117,7 +119,9 @@ fi
 hv_require_file "${SEGMENTS}" "Segment definitions are missing; rerun stage 1a with FORCE=1."
 SEGMENTS_FINGERPRINT="$(hv_file_fingerprint "${SEGMENTS}")"
 ORDER_SIGNATURE="v3|segments=${SEGMENTS_FINGERPRINT}|tool=$(hv_file_fingerprint \
-  src/resequence/order_video_segments.py)|window=${WINDOW_FRAMES:-10}"
+  src/hive_video/resequence/order_video_segments.py)|window=${WINDOW_FRAMES:-10}"
+ORDER_SIGNATURE="${ORDER_SIGNATURE}|binary_resolver=$(hv_file_fingerprint \
+  src/hive_video/_binaries.py)"
 ORDER_SIGNATURE="${ORDER_SIGNATURE}|signature=${SIGNATURE:-trajectory}|top_k=${TOP_K:-10}"
 ORDER_SIGNATURE="${ORDER_SIGNATURE}|sample_width=${ORDER_SAMPLE_WIDTH:-default}"
 
@@ -125,7 +129,7 @@ if hv_step_needed \
     "${ORDER_DONE}" "${ORDER_SIGNATURE}" "${RANKED_EDGES}" "${GREEDY_ORDER}"; then
   rm -f "${ORDER_DONE}" "${AUTO_QC_DONE}" "${REVIEW_DONE}" "${STAGE1A_DONE}"
   ORDER=(
-    uv run --no-sync python src/resequence/order_video_segments.py
+    uv run --no-sync python -m hive_video.resequence.order_video_segments
     --segments "${SEGMENTS}"
     --out "${HV_ORDER_DIR}"
     --window-frames "${WINDOW_FRAMES:-10}"
@@ -149,7 +153,11 @@ AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|segments=${SEGMENTS_FINGERPR
 AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|order=${ORDER_FINGERPRINT}"
 AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|detector=${DETECT_FINGERPRINT}"
 AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|tool=$(hv_file_fingerprint \
-  src/resequence/diagnostics/auto_qc_segment_joins.py)"
+  src/hive_video/resequence/diagnostics/auto_qc_segment_joins.py)"
+AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|binary_resolver=$(hv_file_fingerprint \
+  src/hive_video/_binaries.py)"
+AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|detector_implementation=$(hv_file_fingerprint \
+  src/hive_video/resequence/detect_video_discontinuities.py)"
 AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|max_z=${AUTO_QC_MAX_ROBUST_Z:-15.0}"
 AUTO_QC_INPUT_SIGNATURE="${AUTO_QC_INPUT_SIGNATURE}|min_margin=${AUTO_QC_MIN_MARGIN_RATIO:-2.0}"
 if [ -s "${AUTO_QC_SCORES}" ] && \
@@ -165,7 +173,7 @@ if hv_step_needed \
     "${AUTO_QC_SCORES}" "${AUTO_QC_FLAGGED}" "${AUTO_QC_SUMMARY}"; then
   rm -f "${AUTO_QC_DONE}" "${REVIEW_DONE}" "${STAGE1A_DONE}"
   AUTO_QC=(
-    uv run --no-sync python src/resequence/diagnostics/auto_qc_segment_joins.py
+    uv run --no-sync python -m hive_video.resequence.diagnostics.auto_qc_segment_joins
     "${RESEQ_PATH}"
     --segments "${SEGMENTS}"
     --order-csv "${GREEDY_ORDER}"
@@ -214,7 +222,9 @@ if [ -n "${QC_ROLL}" ]; then
   RANKED_FINGERPRINT="$(hv_file_fingerprint "${RANKED_EDGES}")"
   REVIEW_SIGNATURE="v4|segments=${SEGMENTS_FINGERPRINT}|ranked=${RANKED_FINGERPRINT}"
   REVIEW_SIGNATURE="${REVIEW_SIGNATURE}|order=${ORDER_FINGERPRINT}|tool=$(hv_file_fingerprint \
-    src/resequence/diagnostics/make_join_review_video.py)"
+    src/hive_video/resequence/diagnostics/make_join_review_video.py)"
+  REVIEW_SIGNATURE="${REVIEW_SIGNATURE}|binary_resolver=$(hv_file_fingerprint \
+    src/hive_video/_binaries.py)"
   REVIEW_SIGNATURE="${REVIEW_SIGNATURE}|auto_qc=$(hv_file_fingerprint "${AUTO_QC_SUMMARY}")"
   if [ -n "${REVIEW_FILTER}" ]; then
     REVIEW_FILTER_FINGERPRINT="$(hv_file_fingerprint "${REVIEW_FILTER}")"
@@ -229,7 +239,7 @@ if [ -n "${QC_ROLL}" ]; then
       "${REVIEW_DONE}" "${REVIEW_SIGNATURE}" "${QC_ROLL}" "${QC_ROLL_CAPTIONS}"; then
     rm -f "${REVIEW_DONE}" "${STAGE1A_DONE}"
     REVIEW=(
-      uv run --no-sync python src/resequence/diagnostics/make_join_review_video.py
+      uv run --no-sync python -m hive_video.resequence.diagnostics.make_join_review_video
       "${RESEQ_PATH}"
       --ranked-edges "${RANKED_EDGES}"
       --segments "${SEGMENTS}"
@@ -292,7 +302,7 @@ Manual review is required for the flagged joins:
 
 After inspecting that roll, bind an approval to this exact report and roll:
 
-  uv run --no-sync python src/resequence/diagnostics/approve_manual_join_qc.py create \\
+  uv run --no-sync python -m hive_video.resequence.diagnostics.approve_manual_join_qc create \\
     --summary "${AUTO_QC_SUMMARY}" \\
     --out "${AUTO_QC_APPROVAL}"
 

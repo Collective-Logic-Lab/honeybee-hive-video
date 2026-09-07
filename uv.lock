@@ -682,6 +682,18 @@ wheels = [
 name = "hive-video"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "certifi" },
+    { name = "filelock" },
+    { name = "portable-ffmpeg" },
+]
+
+[package.optional-dependencies]
+resequence = [
+    { name = "numpy" },
+    { name = "opencv-python" },
+    { name = "pillow" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -703,6 +715,15 @@ research = [
 ]
 
 [package.metadata]
+requires-dist = [
+    { name = "certifi", specifier = ">=2026.4.22" },
+    { name = "filelock", specifier = ">=3.20" },
+    { name = "numpy", marker = "extra == 'resequence'", specifier = ">=1.26" },
+    { name = "opencv-python", marker = "extra == 'resequence'", specifier = ">=4.13.0.92" },
+    { name = "pillow", marker = "extra == 'resequence'", specifier = ">=12.2.0" },
+    { name = "portable-ffmpeg", specifier = "==0.3.0" },
+]
+provides-extras = ["resequence"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "ruff", specifier = ">=0.5" }]
@@ -1705,6 +1726,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/69/b7/802a56eca9f2fac455b8bab5375a2647b0f0e14a2cd63ef077de3c4a7658/platformdirs-4.11.7.tar.gz", hash = "sha256:4f41487eeeeeb07f3a6625e61d9bc0ae6809f92d3386dbd74392fbb76108104d", size = 35127, upload-time = "2026-09-01T13:35:10.502Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/27/6e/80993e10a0482f630cef528635789233224f36b1ffd11592aa15d13ff9ce/platformdirs-4.11.7-py3-none-any.whl", hash = "sha256:8a02cb259042c79d1cd0450facc2fe6dc9d303ae7901afbe33bf8ea0b188cef6", size = 23938, upload-time = "2026-09-01T13:35:09.02Z" },
+]
+
+[[package]]
+name = "portable-ffmpeg"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/02/646e45043d305a51020c64c944dccf9cc74de02096d136f371b66aca918f/portable_ffmpeg-0.3.0.tar.gz", hash = "sha256:3d9ee9c2067b451ec026779c08cff8a539c168d47e106a69190e68276fe51a1d", size = 35267, upload-time = "2026-08-04T21:25:35.697Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/6b/11038a5da5846c49687fd8eda78341e73cd81fc6227a2c769cb62a7b5f42/portable_ffmpeg-0.3.0-py3-none-any.whl", hash = "sha256:076e3921ed96cb8f2bd27ba5b1e91069ef7d2574ecbd057c900ccbb2bd49c855", size = 9227, upload-time = "2026-08-04T21:25:34.833Z" },
 ]
 
 [[package]]

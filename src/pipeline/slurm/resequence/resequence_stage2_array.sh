@@ -126,7 +126,7 @@ fi
 uv run --no-sync python -c '
 from pathlib import Path
 import sys
-from src.resequence.diagnostics.auto_qc_segment_joins import validate_summary_inputs
+from hive_video.resequence.diagnostics.auto_qc_segment_joins import validate_summary_inputs
 
 valid, message = validate_summary_inputs(*(Path(value) for value in sys.argv[1:]))
 print(message)
@@ -154,11 +154,11 @@ case "${AUTO_QC_DECISION}" in
     if [ ! -f "${AUTO_QC_APPROVAL}" ]; then
       echo "Automatic join QC requires manual review, but no approval exists." >&2
       echo "Inspect ${FLAGGED_QC_ROLL}, then run:" >&2
-      echo "  uv run --no-sync python src/resequence/diagnostics/approve_manual_join_qc.py create \\" >&2
+      echo "  uv run --no-sync python -m hive_video.resequence.diagnostics.approve_manual_join_qc create \\" >&2
       echo "    --summary \"${AUTO_QC_SUMMARY}\" --out \"${AUTO_QC_APPROVAL}\"" >&2
       exit 4
     fi
-    uv run --no-sync python src/resequence/diagnostics/approve_manual_join_qc.py check \
+    uv run --no-sync python -m hive_video.resequence.diagnostics.approve_manual_join_qc check \
       --summary "${AUTO_QC_SUMMARY}" \
       --approval "${AUTO_QC_APPROVAL}"
     APPROVAL_FINGERPRINT="$(hv_file_fingerprint "${AUTO_QC_APPROVAL}")"
@@ -186,7 +186,7 @@ if [ "${SKIP_UPLOAD:-0}" != "1" ] && [ -n "${SLURM_JOB_ID:-}" ]; then
 fi
 
 REASSEMBLE=(
-  uv run --no-sync python src/resequence/reassemble_video_from_segments.py
+  uv run --no-sync python -m hive_video.resequence.reassemble_video_from_segments
   --segments "${SEGMENTS}"
   --ranked-edges "${RANKED_EDGES}"
   --order-csv "${GREEDY_ORDER}"
@@ -203,7 +203,9 @@ if [ -n "${EDGE_RANK_LIMIT:-}" ]; then REASSEMBLE+=(--edge-rank-limit "${EDGE_RA
 
 REASSEMBLE_SIGNATURE="v3|segments=${SEGMENTS_FINGERPRINT}|ranked=${RANKED_FINGERPRINT}"
 REASSEMBLE_SIGNATURE="${REASSEMBLE_SIGNATURE}|order=${ORDER_FINGERPRINT}|tool=$(hv_file_fingerprint \
-  src/resequence/reassemble_video_from_segments.py)"
+  src/hive_video/resequence/reassemble_video_from_segments.py)"
+REASSEMBLE_SIGNATURE="${REASSEMBLE_SIGNATURE}|binary_resolver=$(hv_file_fingerprint \
+  src/hive_video/_binaries.py)"
 REASSEMBLE_SIGNATURE="${REASSEMBLE_SIGNATURE}|stage1a=$(hv_file_fingerprint "${STAGE1A_DONE}")"
 REASSEMBLE_SIGNATURE="${REASSEMBLE_SIGNATURE}|auto_qc=${AUTO_QC_FINGERPRINT}"
 REASSEMBLE_SIGNATURE="${REASSEMBLE_SIGNATURE}|approval=${APPROVAL_FINGERPRINT}"
