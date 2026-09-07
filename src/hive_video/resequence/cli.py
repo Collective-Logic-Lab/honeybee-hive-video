@@ -123,9 +123,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if error.name in {"numpy", "cv2", "PIL"}:
             raise RuntimeError(
                 f"Resequencing stage {args.stage!r} requires {error.name}; "
-                "install the optional dependencies from the checkout with: "
-                "uv tool install '.[resequence]'. For APIs in another project, use: "
-                "uv add '/absolute/path/to/honeybee-hive-video[resequence]'"
+                "install the optional dependencies with: "
+                "uv tool install 'hive-video[resequence]'. For APIs in another project, use: "
+                "uv add 'hive-video[resequence]'"
             ) from error
         raise
     return 0 if result is None else result

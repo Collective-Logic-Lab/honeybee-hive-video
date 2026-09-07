@@ -2,8 +2,17 @@
 name = "hive-video"
 version = "0.1.0"
 description = "Portable download, resequencing, and fragment tools for honey bee hive video."
+readme = "docs/agent-generated/package-readme.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = ["certifi>=2026.4.22", "filelock>=3.20", "portable-ffmpeg==0.3.0"]
+
+[project.urls]
+Documentation = "https://github.com/Collective-Logic-Lab/honeybee-hive-video/blob/main/docs/agent-generated/package-interface.md"
+Source = "https://github.com/Collective-Logic-Lab/honeybee-hive-video"
+Issues = "https://github.com/Collective-Logic-Lab/honeybee-hive-video/issues"
+Releases = "https://github.com/Collective-Logic-Lab/honeybee-hive-video/releases"
 
 [project.optional-dependencies]
 resequence = [
@@ -23,7 +32,7 @@ build-backend = "hatchling.build"
 packages = ["src/hive_video"]
 
 [tool.hatch.build.targets.sdist]
-only-include = ["pyproject.toml", "src/hive_video"]
+only-include = ["pyproject.toml", "LICENSE", "docs/agent-generated/package-readme.md", "src/hive_video"]
 
 [dependency-groups]
 dev = [

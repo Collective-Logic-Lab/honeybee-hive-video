@@ -182,7 +182,7 @@ for i in range(10):
     print(clip)
 ```
 
-Run it with `uv run python extract_clip.py`. Change `my_dir` to choose where to save the video and clips; the downloader creates the folder if needed. Here, `day=22` selects archive capture `start22`; the timestamp in the resolved filename gives its calendar date. Downloading retrieves the complete source video before extracting clips, so it requires space for the full archive file. The overlapping clips start at 0, 30, …, 270 seconds on the source's nominal frame clock and are saved alongside the source video.
+Run it with `uv run python extract_clip.py`. Change `my_dir` to choose where to save the video and clips; the downloader creates the folder if needed. Here, `day=22` selects archive capture `start22`; the timestamp in the resolved filename gives its calendar date. Downloading retrieves the complete source video before extracting clips, so it requires space for the full archive file. The consecutive clips start at 0, 30, …, 270 seconds on the source's nominal frame clock and are saved alongside the source video.
 
 Each fragment call returns the absolute output `Path` and writes a `.mp4.json` sidecar beside its clip with provenance and a checksum. Fragment extraction refuses existing output files or sidecars. To extract one frame, omit `duration` and choose a `.png` output. Fragment failures raise ordinary Python exceptions; an optional `on_progress(stage, completed_frames, total_frames)` callback lets your application receive progress, with unknown counts reported as `None`.
 

@@ -5,6 +5,7 @@ import io
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -86,6 +87,27 @@ class PackageInterfaceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for command in ("fragment", "download", "resequence", "setup-ffmpeg"):
             self.assertIn(command, result.stdout)
+
+    def test_missing_resequence_extra_explains_installed_package_commands(self) -> None:
+        code = (
+            "import sys; sys.modules['numpy'] = None; "
+            "from hive_video.cli import main; "
+            "sys.exit(main(['resequence', 'detect', '--help']))"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, "-c", code],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("requires numpy", result.stderr)
+        self.assertIn("uv tool install 'hive-video[resequence]'", result.stderr)
+        self.assertIn("uv add 'hive-video[resequence]'", result.stderr)
+        self.assertNotIn(".[resequence]", result.stderr)
+        self.assertNotIn("/absolute/path/", result.stderr)
 
     def test_download_module_runs_outside_checkout(self) -> None:
         repository = Path(__file__).parents[1]

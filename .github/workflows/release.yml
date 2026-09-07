@@ -1,0 +1,214 @@
+name: Package checks and release
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      artifact-id: ${{ steps.distributions.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.7"
+          python-version: "3.12"
+          enable-cache: false
+      - name: Check package version and release ancestry
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          uv run --no-project python - <<'PY'
+          import ast
+          import os
+          from pathlib import Path
+          import subprocess
+          import tomllib
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          module = ast.parse(Path("src/hive_video/__init__.py").read_text())
+          versions = [
+              ast.literal_eval(node.value)
+              for node in module.body
+              if isinstance(node, ast.Assign)
+              and any(isinstance(target, ast.Name) and target.id == "__version__"
+                      for target in node.targets)
+          ]
+          if versions != [version]:
+              raise ValueError(f"Version mismatch: pyproject={version!r}, __version__={versions!r}")
+          if os.environ["EVENT_NAME"] == "release":
+              tag = os.environ["RELEASE_TAG"]
+              if tag != f"v{version}":
+                  raise ValueError(f"Release tag must be v{version}, got {tag!r}")
+              head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+              tagged = subprocess.check_output(
+                  ["git", "rev-parse", f"refs/tags/{tag}^{{commit}}"], text=True
+              ).strip()
+              if head != tagged or head != os.environ["GITHUB_SHA"]:
+                  raise ValueError(f"Checkout {head} does not match the release commit {tagged}")
+              subprocess.run(["git", "merge-base", "--is-ancestor", head, "origin/main"], check=True)
+          print(f"Validated hive-video {version}")
+          PY
+      - name: Build the sdist and its wheel
+        run: uv build --out-dir release-artifacts/dist --no-create-gitignore
+      - name: Check distribution metadata
+        run: uvx --from twine==7.0.0 twine check --strict release-artifacts/dist/*
+      - name: Record the two distribution checksums
+        run: |
+          uv run --no-project python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import tomllib
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          artifacts = Path("release-artifacts")
+          files = sorted((artifacts / "dist").iterdir())
+          expected = {f"hive_video-{version}.tar.gz", f"hive_video-{version}-py3-none-any.whl"}
+          if {path.name for path in files} != expected:
+              raise ValueError(f"Expected {sorted(expected)}, got {[path.name for path in files]}")
+          checksums = "".join(
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n" for path in files
+          )
+          (artifacts / "SHA256SUMS").write_text(checksums)
+          print(checksums, end="")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: distributions
+        with:
+          name: python-distributions-${{ github.run_attempt }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  test:
+    name: Test wheel (${{ matrix.os }}, Python 3.12)
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.7"
+          python-version: "3.12"
+          enable-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release-artifacts/
+          merge-multiple: true
+      - name: Verify distribution checksums
+        working-directory: release-artifacts/dist
+        run: shasum -a 256 --check ../SHA256SUMS
+      - name: Install locked dependencies and the built wheel
+        run: |
+          uv sync --locked --no-default-groups --group dev --extra resequence
+          uv pip install --no-deps --reinstall release-artifacts/dist/*.whl
+          uv run --no-sync python - <<'PY'
+          from pathlib import Path
+          import hive_video
+
+          installed = Path(hive_video.__file__).resolve()
+          if not installed.is_relative_to(Path(".venv").resolve()):
+              raise RuntimeError(f"Tests must import the installed wheel, got {installed}")
+          print(f"Testing installed package: {installed}")
+          PY
+      - name: Prepare the managed FFmpeg pair for local fixtures
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          import os
+          from hive_video._binaries import _managed_binaries, setup_ffmpeg
+
+          # Exercise the packaged provider rather than the runner image's FFmpeg.
+          names = ("HIVE_VIDEO_FFMPEG", "HIVE_VIDEO_FFPROBE")
+          settings = dict(zip(names, _managed_binaries(), strict=True))
+          os.environ.update(settings)
+          print(json.dumps(setup_ffmpeg(), indent=2))
+          with open(os.environ["GITHUB_ENV"], "a") as handle:
+              for name, path in settings.items():
+                  handle.write(f"{name}={path}\n")
+          PY
+      - name: Lint the package and tests
+        run: uv run --no-sync ruff check src/hive_video tests
+      - name: Run deterministic tests against the installed wheel
+        run: uv run --no-sync python -m unittest discover -s tests
+
+  github-release:
+    name: Attach tested distributions to GitHub release
+    needs: [build, test]
+    if: github.event_name == 'release' && github.repository == 'Collective-Logic-Lab/honeybee-hive-video'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Publishing jobs only handle the tested artifact; neither checks out code.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release-artifacts/
+          merge-multiple: true
+      - name: Verify distribution checksums
+        working-directory: release-artifacts/dist
+        run: shasum -a 256 --check ../SHA256SUMS
+      - name: Upload release files without replacing existing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" release-artifacts/dist/* release-artifacts/SHA256SUMS --repo "$GITHUB_REPOSITORY"
+
+  pypi:
+    name: Publish tested distributions to PyPI
+    needs: [build, github-release]
+    if: github.event_name == 'release' && github.repository == 'Collective-Logic-Lab/honeybee-hive-video'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/hive-video
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release-artifacts/
+          merge-multiple: true
+      - name: Verify distribution checksums
+        working-directory: release-artifacts/dist
+        run: shasum -a 256 --check ../SHA256SUMS
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: release-artifacts/dist/
+          print-hash: true
+          attestations: true

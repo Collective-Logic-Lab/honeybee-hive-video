@@ -2,6 +2,8 @@
 
 The `hive-video` distribution contains `hive_video.fragment`, `hive_video.download`, and `hive_video.resequence`. These tools can be installed in another project, including `honey-bee-behavior`. Internal analysis, experiments, and Slurm launchers remain in this repository and are excluded from the distribution.
 
+Version 0.1.0 is the first public package release. The API is still evolving: during 0.x, incompatible interface changes receive a minor version increment and an explanation in the release notes; patch releases contain compatible fixes. Pin the package version and retain your dependency lockfile when reproducing an analysis.
+
 ## Installation
 
 Python 3.12 or newer is required. Install the command-line tools with:
