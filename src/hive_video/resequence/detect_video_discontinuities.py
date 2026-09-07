@@ -15,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hive_video._binaries import resolve_binary
+
 
 @dataclass(frozen=True)
 class VideoInfo:
@@ -36,8 +38,9 @@ class FrameDistance:
     offset_from_expected: int | None = None
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence detect",
         description=(
             "Stream a video through ffmpeg, compute downsampled grayscale frame-to-frame "
             "distances, and save likely discontinuity boundaries."
@@ -136,7 +139,7 @@ def parse_args() -> argparse.Namespace:
             "is within this many frames of each expected previous-boundary frame."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_json(cmd: list[str]) -> dict:
@@ -154,7 +157,7 @@ def parse_fps(value: str) -> float:
 def probe_video(video: Path) -> VideoInfo:
     data = run_json(
         [
-            "ffprobe",
+            resolve_binary("ffprobe"),
             "-v",
             "quiet",
             "-print_format",
@@ -183,7 +186,7 @@ def comparison_size(info: VideoInfo, sample_width: int) -> tuple[int, int]:
 def stream_gray_frames(video: Path, width: int, height: int, max_frames: int | None = None):
     frame_size = width * height
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-v",
         "quiet",
         "-i",
@@ -293,7 +296,7 @@ def extract_boundary_frames(video: Path, out_dir: Path, candidates: list[FrameDi
         for label, frame_idx, time_s in frames:
             out_path = out_dir / f"boundary_{rank:03d}_{label}_frame_{frame_idx:07d}.jpg"
             cmd = [
-                "ffmpeg",
+                resolve_binary("ffmpeg"),
                 "-y",
                 "-v",
                 "error",
@@ -370,8 +373,8 @@ def summarize_expected_boundaries(rows: list[FrameDistance]) -> list[FrameDistan
     return [best_by_boundary[k] for k in sorted(best_by_boundary)]
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     video = args.video.expanduser().resolve()
     out_dir = args.out.expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

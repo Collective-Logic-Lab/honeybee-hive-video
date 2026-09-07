@@ -13,9 +13,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from hive_video._binaries import resolve_binary
 
-def parse_args() -> argparse.Namespace:
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence diagnose",
         description=(
             "Compute downsampled grayscale frame-to-frame distances for selected "
             "source-frame ranges. This is intended to diagnose missed cuts inside "
@@ -41,7 +44,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--sample-width", type=int, default=128)
     parser.add_argument("--top-n", type=int, default=20)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_json(cmd: list[str]) -> dict:
@@ -58,7 +61,7 @@ def parse_fps(value: str) -> float:
 def probe_video(video: Path) -> tuple[int, int, float]:
     data = run_json(
         [
-            "ffprobe",
+            resolve_binary("ffprobe"),
             "-v",
             "quiet",
             "-print_format",
@@ -172,8 +175,8 @@ def write_rows(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     video = args.video.expanduser().resolve()
     out_dir = args.out.expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

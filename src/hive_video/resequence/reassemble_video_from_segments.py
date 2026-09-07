@@ -13,11 +13,14 @@ from pathlib import Path
 
 import cv2
 
+from hive_video._binaries import resolve_binary
+
 INCOMPLETE_EXIT_CODE = 75
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence render",
         description=(
             "Reassemble video segments using ranked join edges. Writes a frame-accurate "
             "review MP4 with captions and a frame mapping CSV."
@@ -114,7 +117,7 @@ def parse_args() -> argparse.Namespace:
             "case-insensitively. Checked between segment chunks."
         ),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def seconds_to_mmss(seconds: float) -> str:
@@ -456,7 +459,7 @@ def concat_part_videos(out: Path, part_rows: list[dict]) -> bool:
     partial = out.with_name(f".{out.stem}.partial{out.suffix}")
     partial.unlink(missing_ok=True)
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-y",
         "-v",
         "error",
@@ -564,9 +567,9 @@ def write_metadata(
     partial.replace(path)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     started_at = time.monotonic()
-    args = parse_args()
+    args = parse_args(argv)
     segments = read_segments(args.segments.expanduser().resolve())
     edges = read_edges(args.ranked_edges.expanduser().resolve(), args.edge_rank_limit)
     if args.order_csv is not None:

@@ -29,7 +29,7 @@ export UV_LINK_MODE=${UV_LINK_MODE:-copy}
 
 # uv's standalone Python does not always discover Sol's Red Hat CA bundle.
 # Honor an explicit bundle, or select the same verified system bundle used by
-# the successful download retry. download_raw.py also adds certifi roots.
+# the successful download retry. hive_video.download also adds certifi roots.
 if [ -z "${SSL_CERT_FILE:-}" ] && [ -r /etc/pki/tls/certs/ca-bundle.crt ]; then
   export SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
 fi
@@ -181,32 +181,35 @@ hv_sync_env() {
   trap - EXIT
 }
 
-# FFmpeg is a Sol module rather than a Python dependency. Load the confirmed
-# cluster build when a compute-node environment does not already provide it.
-# This keeps rendering jobs independent of the login shell that submitted them.
+# Keep the cluster's FFmpeg pair explicit across uv's environment activation.
+# Load the confirmed module when the compute-node shell does not provide both.
 hv_require_ffmpeg() {
-  if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
-    return 0
+  if ! type -P ffmpeg >/dev/null 2>&1 || ! type -P ffprobe >/dev/null 2>&1; then
+    if ! type module >/dev/null 2>&1 && [ -r /etc/profile.d/modules.sh ]; then
+      # shellcheck source=/etc/profile.d/modules.sh
+      source /etc/profile.d/modules.sh
+    fi
+    if type module >/dev/null 2>&1; then
+      echo "Loading ffmpeg-6.0-gcc-12.1.0 module"
+      module load ffmpeg-6.0-gcc-12.1.0
+    fi
   fi
-  if ! type module >/dev/null 2>&1 && [ -r /etc/profile.d/modules.sh ]; then
-    # shellcheck source=/etc/profile.d/modules.sh
-    source /etc/profile.d/modules.sh
-  fi
-  if type module >/dev/null 2>&1; then
-    echo "Loading ffmpeg-6.0-gcc-12.1.0 module"
-    module load ffmpeg-6.0-gcc-12.1.0
-  fi
-  if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+  if ! type -P ffmpeg >/dev/null 2>&1 || ! type -P ffprobe >/dev/null 2>&1; then
     echo "ffmpeg and ffprobe are required but unavailable after loading ffmpeg-6.0-gcc-12.1.0." >&2
     exit 5
   fi
+  local ffmpeg_path ffprobe_path
+  ffmpeg_path="$(type -P ffmpeg)"
+  ffprobe_path="$(type -P ffprobe)"
+  export HIVE_VIDEO_FFMPEG="$(cd "$(dirname "${ffmpeg_path}")" && pwd -P)/$(basename "${ffmpeg_path}")"
+  export HIVE_VIDEO_FFPROBE="$(cd "$(dirname "${ffprobe_path}")" && pwd -P)/$(basename "${ffprobe_path}")"
 }
 
 # Resolve a locator such as start47_side1_top into every path the pipeline needs.
 hv_resolve() {
   local locator="$1"
   local assignments
-  if ! assignments="$(uv run --no-sync python src/download/download_raw.py \
+  if ! assignments="$(uv run --no-sync python -m hive_video.download \
       --locator "${locator}" \
       --target "${DOWNLOAD_DIR}" \
       --resolve-only --format sh)"; then

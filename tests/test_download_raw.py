@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import json
 import ssl
 import tempfile
@@ -10,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
-from src.download import download_raw
+from hive_video import download as download_raw
 
 
 def manifest_entry() -> dict:
@@ -193,23 +192,23 @@ class DownloadRawTests(unittest.TestCase):
                 )
 
     def test_start_locator_is_unambiguous(self) -> None:
-        args = argparse.Namespace(
+        selection = dict(
             locator="start47_side1_top",
             start=None,
             side=None,
             panel=None,
         )
-        self.assertEqual(download_raw.resolve_selection(args), (47, 1, "top"))
+        self.assertEqual(download_raw.resolve_selection(**selection), (47, 1, "top"))
 
     def test_old_day_locator_is_rejected(self) -> None:
-        args = argparse.Namespace(
+        selection = dict(
             locator="day47_side1_top",
             start=None,
             side=None,
             panel=None,
         )
-        with self.assertRaises(SystemExit):
-            download_raw.resolve_selection(args)
+        with self.assertRaises(ValueError):
+            download_raw.resolve_selection(**selection)
 
     def test_manifest_uses_checksum_fallback_and_start_locator(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

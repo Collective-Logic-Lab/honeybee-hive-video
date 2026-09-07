@@ -131,7 +131,7 @@ for expected_input in "${EXPECTED_INPUTS[@]}"; do
     RESOLVE_OPTIONS+=(--refresh-manifest)
     REFRESH_MANIFEST=0
   fi
-  assignments="$(uv run --no-sync python src/download/download_raw.py \
+  assignments="$(uv run --no-sync python -m hive_video.download \
     --locator "${expected_locator}" \
     --target "${DOWNLOAD_DIR}" \
     --resolve-only --format sh \
@@ -147,7 +147,7 @@ for expected_input in "${EXPECTED_INPUTS[@]}"; do
     echo "  observed ${RESEQ_KEY} ${RESEQ_FILENAME} ${RESEQ_SIZE} ${RESEQ_MD5}" >&2
     exit 4
   fi
-  uv run --no-sync python src/download/download_raw.py \
+  uv run --no-sync python -m hive_video.download \
     --locator "${expected_locator}" \
     --target "${DOWNLOAD_DIR}" \
     --probe-only

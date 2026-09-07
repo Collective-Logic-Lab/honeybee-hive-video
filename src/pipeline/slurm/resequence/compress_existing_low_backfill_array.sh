@@ -75,7 +75,7 @@ hv_require_file "${SOURCE}" "Expected archival resequenced source is missing."
 mkdir -p "${COMPRESSED_DIR}"
 
 hv_time_step "compress_low" \
-  uv run --no-sync python src/resequence/compress_resequenced.py \
+  uv run --no-sync python -m hive_video.resequence.compress_resequenced \
     "${SOURCE}" \
     --out "${COMPRESSED_VIDEO}" \
     --metadata-out "${COMPRESSED_METADATA}" \

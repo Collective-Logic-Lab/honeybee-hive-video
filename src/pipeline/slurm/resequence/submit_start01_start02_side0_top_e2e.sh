@@ -110,7 +110,7 @@ uv run --no-sync hf auth whoami --format json
 
 echo "Resolving the fixed pilot inputs without downloading media."
 for locator in ${LOCATORS}; do
-  uv run --no-sync python src/download/download_raw.py \
+  uv run --no-sync python -m hive_video.download \
     --locator "${locator}" \
     --target "${DOWNLOAD_DIR}" \
     --resolve-only

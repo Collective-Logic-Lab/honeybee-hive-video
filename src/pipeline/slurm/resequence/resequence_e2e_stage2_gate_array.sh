@@ -138,7 +138,7 @@ fi
 uv run --no-sync python -c '
 from pathlib import Path
 import sys
-from src.resequence.diagnostics.auto_qc_segment_joins import validate_summary_inputs
+from hive_video.resequence.diagnostics.auto_qc_segment_joins import validate_summary_inputs
 
 valid, message = validate_summary_inputs(*(Path(value) for value in sys.argv[1:]))
 print(message)

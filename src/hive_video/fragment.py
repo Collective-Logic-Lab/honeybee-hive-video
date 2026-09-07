@@ -1,7 +1,7 @@
-"""Exact ordinal-frame fragments; see method HV-F001.
+"""Exact ordinal-frame extraction; see method HV-F001.
 
 The API has no repository, dataset, scheduler, or working-directory assumptions.
-FFmpeg and FFprobe must be on PATH. Seconds refer to the nominal frame clock
+FFmpeg and ffprobe are resolved by the package. Seconds refer to the nominal frame clock
 ``frame_index / fps``. Sequential decoding deliberately provides the reference
 path: seeking to a late frame can take time proportional to its source position.
 """
@@ -13,7 +13,6 @@ import json
 import math
 import os
 import platform
-import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
@@ -22,6 +21,8 @@ from fractions import Fraction
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
+
+from ._binaries import resolve_binary
 
 ProgressCallback = Callable[[str, int | None, int | None], None]
 
@@ -166,7 +167,8 @@ def create_fragment(
 
     An optional ``on_progress(stage, completed_frames, total_frames)`` callback
     receives operational status; only encoding reports observed output frames.
-    The API prints nothing. Callback exceptions stop work and propagate; no
+    First-use executable provisioning reports to stderr; media work prints nothing.
+    Callback exceptions stop work and propagate; no
     callback runs after publication, and encoder completion precedes validation.
     """
     if unit not in {"frames", "seconds"}:
@@ -196,11 +198,7 @@ def create_fragment(
     sidecar = output.with_suffix(output.suffix + ".json")
     _refuse_existing(output)
     _refuse_existing(sidecar)
-    executables = {name: shutil.which(name) for name in ("ffmpeg", "ffprobe")}
-    for name, executable in executables.items():
-        if executable is None:
-            raise FileNotFoundError(f"Required executable {name!r} is not on PATH")
-    ffmpeg, ffprobe = str(executables["ffmpeg"]), str(executables["ffprobe"])
+    ffmpeg, ffprobe = resolve_binary("ffmpeg"), resolve_binary("ffprobe")
 
     source_stat = source.stat()
     if on_progress is not None:

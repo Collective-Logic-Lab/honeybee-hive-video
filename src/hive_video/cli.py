@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from .fragments import create_fragment
+from .fragment import create_fragment
 from .progress import BeeProgress
 from .sources import fragment_filename, resolve_source
 
@@ -63,12 +64,49 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Progress on stderr: animated on terminals, plain in logs, or off (default: auto).",
     )
+    commands.add_parser("download", add_help=False, help="Resolve and download archive videos.")
+    commands.add_parser(
+        "resequence", add_help=False, help="Run individual reconstruction and review stages."
+    )
+    commands.add_parser(
+        "setup-ffmpeg",
+        help="Prepare FFmpeg and ffprobe for media operations, including offline work.",
+        description=(
+            "Resolve or download FFmpeg and ffprobe, verify both executables, and print "
+            "their paths, versions, and SHA-256 checksums as JSON. Provider progress goes "
+            "to stderr. Help does not download binaries."
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    # Each tool owns its argument contract. Dispatch before parsing so stage
+    # help and all existing downloader flags reach their own parsers intact.
+    try:
+        if arguments and arguments[0] == "setup-ffmpeg":
+            build_parser().parse_args(arguments)
+            from ._binaries import setup_ffmpeg
+
+            print(json.dumps(setup_ffmpeg(), indent=2))
+            return 0
+        if arguments and arguments[0] == "download":
+            from . import download
+
+            return download.main(arguments[1:])
+        if arguments and arguments[0] == "resequence":
+            from .resequence.cli import main as resequence_main
+
+            return resequence_main(arguments[1:])
+    except KeyboardInterrupt:
+        print("hive-video: cancelled", file=sys.stderr)
+        return 130
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"hive-video: error: {error}", file=sys.stderr)
+        return 1
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     if args.locator is not None and args.data_dir is None:
         parser.error("--locator requires an explicit --data-dir")
     if args.video is not None and args.data_dir is not None:

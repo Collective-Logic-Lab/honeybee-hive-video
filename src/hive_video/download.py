@@ -22,15 +22,15 @@ every later path from it.
 Examples::
 
     # Download one file into the current directory.
-    uv run python src/download/download_raw.py --start 4 --side 1 --panel top
+    hive-video download --start 4 --side 1 --panel top
 
     # Download by archive filename into an explicit target.
-    uv run python src/download/download_raw.py \\
+    hive-video download \\
         --filename start47__20190731_184423_side1_top.mp4 \\
         --target /scratch/pdressla/honey-bee/downloads
 
     # Resolve a slurm locator to its key and local path without downloading.
-    uv run python src/download/download_raw.py --locator start47_side1_top --resolve-only
+    hive-video download --locator start47_side1_top --resolve-only
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shlex
@@ -48,6 +49,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,9 +64,7 @@ FILENAME_RE = re.compile(
     r"side(?P<side>\d)_(?P<panel>[a-z]+)\.mp4$"
 )
 # start47_side1_top
-LOCATOR_RE = re.compile(
-    r"^start(?P<start>\d+)_side(?P<side>[01])_(?P<panel>top|bottom)$"
-)
+LOCATOR_RE = re.compile(r"^start(?P<start>\d+)_side(?P<side>[01])_(?P<panel>top|bottom)$")
 
 CHUNK_BYTES = 8 * 1024 * 1024
 USER_AGENT = "hive-video-download-raw/1.0"
@@ -117,10 +117,13 @@ class HTTPSOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def default_cache_path(doi: str) -> Path:
+def default_cache_path(doi: str, server: str = DEFAULT_SERVER) -> Path:
+    """Keep file IDs from different archive servers and datasets in separate caches."""
     root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "hive_video"
     slug = re.sub(r"[^A-Za-z0-9]+", "_", doi).strip("_")
-    return root / f"edmond_manifest_{slug}.json"
+    identity = json.dumps([server.rstrip("/"), doi]).encode("utf-8")
+    digest = hashlib.sha256(identity).hexdigest()[:16]
+    return root / f"edmond_manifest_{slug}_{digest}.json"
 
 
 def build_ssl_context(
@@ -262,10 +265,7 @@ def load_manifest(
                 file_id=int(data_file["id"]),
                 filename=name,
                 size=int(data_file.get("filesize", 0)),
-                md5=str(
-                    data_file.get("md5")
-                    or data_file.get("checksum", {}).get("value", "")
-                ),
+                md5=str(data_file.get("md5") or data_file.get("checksum", {}).get("value", "")),
                 start=int(match.group("start")),
                 date=match.group("date"),
                 time=match.group("time"),
@@ -288,29 +288,32 @@ def select_file(
         for candidate in files:
             if candidate.filename == filename:
                 return candidate
-        raise SystemExit(f"No archive file named {filename!r} in this dataset.")
+        raise ValueError(f"No archive file named {filename!r} in this dataset.")
 
-    matches = [
-        f for f in files if f.start == start and f.side == side and f.panel == panel
-    ]
+    if start is None or side is None or panel is None:
+        raise ValueError("Specify a filename or all of start, side, and panel.")
+
+    matches = [f for f in files if f.start == start and f.side == side and f.panel == panel]
     if len(matches) == 1:
         return matches[0]
     if not matches:
         for_start = [f for f in files if f.start == start]
         if not for_start:
             starts = sorted({f.start for f in files})
-            raise SystemExit(
+            if not starts:
+                raise ValueError("No video files were found in the archive manifest.")
+            raise ValueError(
                 f"No start{start:02d} in this dataset. Available start identifiers: "
                 f"{starts[0]}-{starts[-1]} ({len(starts)} captures)."
             )
         sides = sorted({f.side for f in for_start})
         panels = sorted({f.panel for f in for_start})
-        raise SystemExit(
+        raise ValueError(
             f"No start{start:02d} side{side} {panel!r}. For start{start:02d} the archive has "
             f"sides {sides} and panels {panels}."
         )
     names = ", ".join(f.filename for f in matches)
-    raise SystemExit(f"Ambiguous selection, matched several files: {names}")
+    raise ValueError(f"Ambiguous selection, matched several files: {names}")
 
 
 def md5sum(path: Path, chunk_bytes: int = CHUNK_BYTES) -> str:
@@ -329,6 +332,11 @@ def _format_bytes(count: float) -> str:
     return f"{count:.1f}PB"
 
 
+def _report(on_message: Callable[[str], None] | None, message: str) -> None:
+    if on_message is not None:
+        on_message(message)
+
+
 def download(
     remote: RemoteFile,
     destination: Path,
@@ -337,6 +345,8 @@ def download(
     retries: int,
     progress_seconds: float,
     ssl_context: ssl.SSLContext,
+    *,
+    on_message: Callable[[str], None] | None = None,
 ) -> None:
     """Download ``remote`` to ``destination``, resuming a partial ``.part`` file.
 
@@ -349,7 +359,10 @@ def download(
     for attempt in range(1, retries + 1):
         have = part.stat().st_size if part.exists() else 0
         if remote.size and have > remote.size:
-            print(f"  partial file is larger than expected ({have} > {remote.size}); restarting")
+            _report(
+                on_message,
+                f"  partial file is larger than expected ({have} > {remote.size}); restarting",
+            )
             part.unlink()
             have = 0
         if remote.size and have == remote.size:
@@ -360,7 +373,10 @@ def download(
             with _http_get(url, timeout, headers, ssl_context) as response:
                 if have and response.status != 206:
                     # Server ignored the range request; start over rather than corrupt.
-                    print(f"  server returned {response.status} for a range request; restarting")
+                    _report(
+                        on_message,
+                        f"  server returned {response.status} for a range request; restarting",
+                    )
                     part.unlink(missing_ok=True)
                     have = 0
                 mode = "ab" if have else "wb"
@@ -378,23 +394,26 @@ def download(
                         if now - last_report >= progress_seconds:
                             rate = (written - have) / max(now - started, 1e-6)
                             pct = f"{100.0 * written / remote.size:5.1f}%" if remote.size else "?"
-                            print(
+                            _report(
+                                on_message,
                                 f"  {pct} {_format_bytes(written)}"
                                 f"/{_format_bytes(remote.size)} at {_format_bytes(rate)}/s",
-                                flush=True,
                             )
                             last_report = now
             if not remote.size or part.stat().st_size == remote.size:
                 break
-            print(f"  short read ({part.stat().st_size}/{remote.size}); retrying")
+            _report(on_message, f"  short read ({part.stat().st_size}/{remote.size}); retrying")
         except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as error:
             if attempt == retries:
                 raise
             backoff = min(60.0, 2.0**attempt)
-            print(f"  attempt {attempt}/{retries} failed ({error}); retrying in {backoff:.0f}s")
+            _report(
+                on_message,
+                f"  attempt {attempt}/{retries} failed ({error}); retrying in {backoff:.0f}s",
+            )
             time.sleep(backoff)
     else:
-        raise SystemExit(f"Giving up on {remote.filename} after {retries} attempts.")
+        raise RuntimeError(f"Giving up on {remote.filename} after {retries} attempts.")
 
     part.replace(destination)
 
@@ -436,29 +455,226 @@ def probe_download(
             raise RuntimeError(f"Media probe returned no data for {remote.filename}")
 
 
-def resolve_selection(args: argparse.Namespace) -> tuple[int | None, int | None, str | None]:
+def resolve_selection(
+    *,
+    locator: str | None,
+    start: int | None,
+    side: int | None,
+    panel: str | None,
+) -> tuple[int | None, int | None, str | None]:
     """Normalise --locator into the start/side/panel triple."""
-    if args.locator is not None:
-        match = LOCATOR_RE.match(args.locator)
+    if locator is not None:
+        match = LOCATOR_RE.match(locator)
         if match is None:
-            raise SystemExit(
-                f"Could not parse locator {args.locator!r}. "
-                "Expected e.g. 'start47_side1_top'."
+            raise ValueError(
+                f"Could not parse locator {locator!r}. Expected e.g. 'start47_side1_top'."
             )
         return (
             int(match.group("start")),
             int(match.group("side")),
             match.group("panel"),
         )
-    return args.start, args.side, args.panel
+    return start, side, panel
 
 
-def build_parser() -> argparse.ArgumentParser:
+def resolve_video(
+    *,
+    manifest_cache: str | Path,
+    server: str = DEFAULT_SERVER,
+    doi: str = DEFAULT_DOI,
+    refresh_manifest: bool,
+    timeout: float,
+    locator: str | None = None,
+    filename: str | None = None,
+    start: int | None = None,
+    side: int | None = None,
+    panel: str | None = None,
+    ca_bundle: str | Path | None = None,
+) -> RemoteFile:
+    """Resolve one archive file without downloading its media.
+
+    Select by locator, exact filename, or complete start/side/panel triple.
+    Server and DOI default to the CLI's Edmond archive. A missing or refreshed
+    manifest cache fetches the listing using verified HTTPS. The return value
+    records the published identity, byte count, and MD5 for ``download_video``.
+    """
+    start, side, panel = resolve_selection(locator=locator, start=start, side=side, panel=panel)
+    if filename is None and (start is None or side is None or panel is None):
+        raise ValueError("Specify filename, locator, or all of start, side, and panel.")
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError(f"timeout must be finite and positive, observed {timeout!r}")
+    context, _ca_files = build_ssl_context(None if ca_bundle is None else Path(ca_bundle))
+    files = load_manifest(
+        server, doi, Path(manifest_cache).expanduser(), refresh_manifest, timeout, context
+    )
+    return select_file(files, filename, start, side, panel)
+
+
+def _validate_download_settings(
+    timeout: float, retries: int, progress_seconds: float, verify: bool, force: bool
+) -> None:
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError(f"timeout must be finite and positive, observed {timeout!r}")
+    if isinstance(retries, bool) or not isinstance(retries, int) or retries < 1:
+        raise ValueError(f"retries must be a positive integer, observed {retries!r}")
+    if not math.isfinite(progress_seconds) or progress_seconds <= 0:
+        raise ValueError(
+            f"progress_seconds must be finite and positive, observed {progress_seconds!r}"
+        )
+    if not isinstance(verify, bool) or not isinstance(force, bool):
+        raise ValueError(f"verify and force must be booleans, observed {verify!r}, {force!r}")
+
+
+def _download_selected(
+    remote: RemoteFile,
+    *,
+    target: Path,
+    server: str,
+    timeout: float,
+    retries: int,
+    progress_seconds: float,
+    verify: bool,
+    force: bool,
+    ssl_context: ssl.SSLContext,
+    on_message: Callable[[str], None] | None,
+) -> Path:
+    if Path(remote.filename).name != remote.filename:
+        raise ValueError(f"Archive filename must be a basename, observed {remote.filename!r}")
+    destination = target.expanduser() / remote.filename
+    if destination.exists() and not destination.is_file():
+        raise ValueError(f"Download destination exists and is not a file: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    _report(
+        on_message, f"resolved {remote.locator} -> {remote.filename} ({remote.size / 1e9:.1f} GB)"
+    )
+    _report(on_message, f"target   {destination}")
+    if destination.exists() and not force:
+        if not verify:
+            _report(on_message, "already present, skipping (MD5 not checked)")
+            return destination
+        if destination.stat().st_size == remote.size and md5sum(destination) == remote.md5:
+            _report(on_message, "already present and MD5 matches, skipping")
+            return destination
+        _report(on_message, "existing file does not match the archive checksum; re-downloading")
+    download(
+        remote,
+        destination,
+        server,
+        timeout,
+        retries,
+        progress_seconds,
+        ssl_context,
+        on_message=on_message,
+    )
+    if verify:
+        _report(on_message, "verifying MD5")
+        digest = md5sum(destination)
+        if digest != remote.md5:
+            raise RuntimeError(f"MD5 mismatch: got {digest}, archive says {remote.md5}")
+        _report(on_message, "MD5 OK")
+    _report(on_message, f"done: {destination}")
+    return destination
+
+
+def download_video(
+    remote: RemoteFile | None = None,
+    *,
+    target: str | Path,
+    day: int | None = None,
+    side: int | None = None,
+    panel: str | None = None,
+    manifest_cache: str | Path | None = None,
+    server: str = DEFAULT_SERVER,
+    doi: str = DEFAULT_DOI,
+    refresh_manifest: bool = False,
+    timeout: float = 120.0,
+    retries: int = 8,
+    progress_seconds: float = 60.0,
+    verify: bool = True,
+    force: bool = False,
+    ca_bundle: str | Path | None = None,
+    on_message: Callable[[str], None] | None = None,
+) -> Path:
+    """Download one recording by day/side/panel or a previously resolved identity.
+
+    ``day`` selects the archive's sequential ``start<N>`` identifier, not an
+    elapsed or calendar day. Direct selection requires all three selectors;
+    ``day=22, side=0, panel="top"`` selects the Start 22 side-0 top recording.
+    The filename timestamp identifies its calendar date. Manifest caching
+    defaults to the user cache directory, keyed by server and DOI; an explicit
+    ``manifest_cache`` is used as given. Missing or refreshed caches fetch the
+    archive listing before the media transfer.
+
+    Alternatively, pass a ``RemoteFile`` from ``resolve_video`` after inspecting
+    its identity and size. Do not combine it with selectors or resolution-only
+    settings. When overriding the resolution server, pass the same server here.
+
+    Uses the established resumable ``.part`` transfer and archive MD5 check.
+    Defaults match the CLI: Edmond, a 120-second timeout, eight attempts, and
+    progress messages every 60 seconds when ``on_message`` is supplied. MD5
+    verification is enabled and forced downloading is disabled. Verified
+    existing files are reused; mismatched files are re-downloaded.
+    ``verify=False`` explicitly skips checksum verification. The returned path
+    retains the target's relative or absolute form. This API is quiet unless
+    ``on_message`` is supplied; errors propagate.
+    """
+    _validate_download_settings(timeout, retries, progress_seconds, verify, force)
+    if not isinstance(refresh_manifest, bool):
+        raise ValueError(f"refresh_manifest must be a boolean, observed {refresh_manifest!r}")
+    if on_message is not None and not callable(on_message):
+        raise ValueError("on_message must be callable or None")
+    target = Path(target)
+    if remote is None:
+        if day is None or side is None or panel is None:
+            raise ValueError("Specify all of day, side, and panel, or pass a resolved RemoteFile.")
+        if isinstance(day, bool) or not isinstance(day, int) or day < 1:
+            raise ValueError(f"day must be a positive integer archive identifier, observed {day!r}")
+        if isinstance(side, bool) or not isinstance(side, int) or side not in (0, 1):
+            raise ValueError(f"side must be integer 0 or 1, observed {side!r}")
+        if panel not in ("top", "bottom"):
+            raise ValueError(f"panel must be 'top' or 'bottom', observed {panel!r}")
+        cache_path = (
+            default_cache_path(doi, server=server)
+            if manifest_cache is None
+            else Path(manifest_cache).expanduser()
+        )
+    else:
+        if not isinstance(remote, RemoteFile):
+            raise ValueError(
+                f"remote must be a resolved RemoteFile, observed {type(remote).__name__}"
+            )
+        if any(value is not None for value in (day, side, panel)):
+            raise ValueError("A resolved RemoteFile cannot be combined with day, side, or panel.")
+        if manifest_cache is not None or doi != DEFAULT_DOI or refresh_manifest:
+            raise ValueError(
+                "A resolved RemoteFile cannot be combined with manifest_cache, "
+                "a non-default doi, or refresh_manifest."
+            )
+    context, _ca_files = build_ssl_context(None if ca_bundle is None else Path(ca_bundle))
+    if remote is None:
+        files = load_manifest(server, doi, cache_path, refresh_manifest, timeout, context)
+        remote = select_file(files, None, day, side, panel)
+    return _download_selected(
+        remote,
+        target=target,
+        server=server,
+        timeout=timeout,
+        retries=retries,
+        progress_seconds=progress_seconds,
+        verify=verify,
+        force=force,
+        ssl_context=context,
+        on_message=on_message,
+    )
+
+
+def build_parser(*, prog: str | None = None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
+        prog=prog,
         description=(
             "Download a raw 2019 hive video from the Edmond archive by start/side/panel "
             "or by archive filename."
-        )
+        ),
     )
     selector = parser.add_argument_group("file selection")
     selector.add_argument(
@@ -469,10 +685,9 @@ def build_parser() -> argparse.ArgumentParser:
     selector.add_argument("--side", type=int, choices=(0, 1), help="Hive side.")
     selector.add_argument(
         "--panel",
-        "--frame",
         dest="panel",
         choices=("top", "bottom"),
-        help="Camera panel. --frame is accepted as a compatibility alias.",
+        help="Camera panel.",
     )
     selector.add_argument(
         "--filename",
@@ -543,18 +758,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def _run_cli(args: argparse.Namespace) -> int:
     selected_modes = sum((args.list, args.resolve_only, args.probe_only))
     if selected_modes > 1:
-        raise SystemExit("Choose only one of --list, --resolve-only, or --probe-only.")
+        raise ValueError("Choose only one of --list, --resolve-only, or --probe-only.")
+    _validate_download_settings(
+        args.timeout, args.retries, args.progress_every_seconds, not args.no_verify, args.force
+    )
 
     ssl_context, ca_files = build_ssl_context(args.ca_bundle)
     print(
         "TLS verification roots: Python defaults plus " + ", ".join(str(path) for path in ca_files),
         file=sys.stderr,
     )
-    cache_path = args.manifest_cache or default_cache_path(args.doi)
+    cache_path = args.manifest_cache or default_cache_path(args.doi, server=args.server)
     files = load_manifest(
         args.server,
         args.doi,
@@ -569,11 +786,11 @@ def main() -> int:
             print(f"{entry.key}\t{entry.locator}\t{entry.size / 1e9:.1f}GB\t{entry.filename}")
         return 0
 
-    start, side, panel = resolve_selection(args)
+    start, side, panel = resolve_selection(
+        locator=args.locator, start=args.start, side=args.side, panel=args.panel
+    )
     if args.filename is None and (start is None or side is None or panel is None):
-        raise SystemExit(
-            "Specify --filename, or --locator, or all of --start, --side and --panel."
-        )
+        raise ValueError("Specify --filename, or --locator, or all of --start, --side and --panel.")
 
     remote = select_file(files, args.filename, start, side, panel)
     destination = args.target.expanduser() / remote.filename
@@ -604,38 +821,32 @@ def main() -> int:
         print("media TLS/redirect probe OK")
         return 0
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    print(f"resolved {remote.locator} -> {remote.filename} ({remote.size / 1e9:.1f} GB)")
-    print(f"target   {destination}")
-
-    if destination.exists() and not args.force:
-        if args.no_verify:
-            print("already present, skipping (MD5 not checked)")
-            return 0
-        if destination.stat().st_size == remote.size and md5sum(destination) == remote.md5:
-            print("already present and MD5 matches, skipping")
-            return 0
-        print("existing file does not match the archive checksum; re-downloading")
-
-    download(
+    _download_selected(
         remote,
-        destination,
-        args.server,
-        args.timeout,
-        args.retries,
-        args.progress_every_seconds,
-        ssl_context,
+        target=args.target,
+        server=args.server,
+        timeout=args.timeout,
+        retries=args.retries,
+        progress_seconds=args.progress_every_seconds,
+        verify=not args.no_verify,
+        force=args.force,
+        ssl_context=ssl_context,
+        on_message=lambda message: print(message, flush=True),
     )
-
-    if not args.no_verify:
-        print("verifying MD5")
-        digest = md5sum(destination)
-        if digest != remote.md5:
-            raise SystemExit(f"MD5 mismatch: got {digest}, archive says {remote.md5}")
-        print("MD5 OK")
-
-    print(f"done: {destination}")
     return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser(prog="hive-video download")
+    args = parser.parse_args(argv)
+    try:
+        return _run_cli(args)
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"{parser.prog}: error: {error}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print(f"{parser.prog}: cancelled", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

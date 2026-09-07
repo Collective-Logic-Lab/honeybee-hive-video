@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -11,7 +10,8 @@ from itertools import groupby
 from pathlib import Path
 from unittest import mock
 
-from hive_video.fragments import create_fragment
+from hive_video._binaries import resolve_binary
+from hive_video.fragment import create_fragment
 
 
 def write_source(path: Path, *, width: int = 16, height: int = 12, fps: str = "10") -> None:
@@ -19,7 +19,7 @@ def write_source(path: Path, *, width: int = 16, height: int = 12, fps: str = "1
     pixels = b"".join(bytes([24 + 24 * index]) * (width * height * 3) for index in range(8))
     subprocess.run(
         [
-            "ffmpeg",
+            resolve_binary("ffmpeg"),
             "-hide_banner",
             "-loglevel",
             "error",
@@ -55,7 +55,7 @@ def decoded_frames(path: Path, *, width: int = 16, height: int = 12) -> list[byt
     """Decode every stored frame independently of the utility's selection code."""
     result = subprocess.run(
         [
-            "ffmpeg",
+            resolve_binary("ffmpeg"),
             "-hide_banner",
             "-loglevel",
             "error",
@@ -87,12 +87,11 @@ def decoded_frames(path: Path, *, width: int = 16, height: int = 12) -> list[byt
     ]
 
 
-@unittest.skipUnless(
-    shutil.which("ffmpeg") and shutil.which("ffprobe"), "requires ffmpeg and ffprobe"
-)
 class FragmentTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        resolve_binary("ffmpeg")
+        resolve_binary("ffprobe")
         cls.fixtures = tempfile.TemporaryDirectory(prefix="hive video source ")
         cls.addClassCleanup(cls.fixtures.cleanup)
         cls.source = Path(cls.fixtures.name) / "source with spaces.avi"
@@ -104,7 +103,7 @@ class FragmentTests(unittest.TestCase):
         write_source(cls.odd_source, width=15, height=11)
         subprocess.run(
             [
-                "ffmpeg",
+                resolve_binary("ffmpeg"),
                 "-hide_banner",
                 "-loglevel",
                 "error",
@@ -315,7 +314,7 @@ class FragmentTests(unittest.TestCase):
                 output.write_bytes(b"another writer's media")
             return real_link(source, destination, *args, **kwargs)
 
-        with mock.patch("hive_video.fragments.os.link", side_effect=concurrent_link):
+        with mock.patch("hive_video.fragment.os.link", side_effect=concurrent_link):
             with self.assertRaises(FileExistsError):
                 create_fragment(self.source, output, start=0, unit="frames")
         self.assertEqual(output.read_bytes(), b"another writer's media")
@@ -350,16 +349,17 @@ class FragmentTests(unittest.TestCase):
     def test_encoder_failure_preserves_nonzero_outcome_and_no_finalized_outputs(self) -> None:
         output = self.root / "failed encode.mp4"
         real_run = subprocess.run
+        encoder = resolve_binary("ffmpeg")
 
         def fail_encoding(command, *args, **kwargs):
-            if Path(command[0]).name == "ffmpeg" and "-i" in command:
+            if command[0] == encoder and "-i" in command:
                 Path(command[-1]).write_bytes(b"partial output")
                 return subprocess.CompletedProcess(
                     command, 1, stdout="", stderr="forced encoder failure"
                 )
             return real_run(command, *args, **kwargs)
 
-        with mock.patch("hive_video.fragments.subprocess.run", side_effect=fail_encoding):
+        with mock.patch("hive_video.fragment.subprocess.run", side_effect=fail_encoding):
             with self.assertRaisesRegex(RuntimeError, "forced encoder failure"):
                 create_fragment(self.source, output, start=1, duration=2, unit="frames")
         self.assert_no_fragment(output)

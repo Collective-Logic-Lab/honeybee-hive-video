@@ -72,7 +72,9 @@ CUT_REVIEW_DONE="${HV_QC_DIR}/.cut_review.complete"
 RAW_FINGERPRINT="$(hv_file_stat_fingerprint "${RESEQ_PATH}")"
 DETECT_SIGNATURE="v3|key=${RESEQ_KEY}|raw=${RAW_FINGERPRINT}|archive_md5=${RESEQ_MD5:-unknown}"
 DETECT_SIGNATURE="${DETECT_SIGNATURE}|tool=$(hv_file_fingerprint \
-  src/resequence/detect_video_discontinuities.py)|top_n=${TOP_N:-400}"
+  src/hive_video/resequence/detect_video_discontinuities.py)|top_n=${TOP_N:-400}"
+DETECT_SIGNATURE="${DETECT_SIGNATURE}|binary_resolver=$(hv_file_fingerprint \
+  src/hive_video/_binaries.py)"
 DETECT_SIGNATURE="${DETECT_SIGNATURE}|sample_width=${SAMPLE_WIDTH:-default}"
 DETECT_SIGNATURE="${DETECT_SIGNATURE}|mad_z=${MAD_Z:-default}"
 DETECT_SIGNATURE="${DETECT_SIGNATURE}|min_distance=${MIN_DISTANCE:-default}"
@@ -83,7 +85,7 @@ if hv_step_needed \
     "${DETECT_DONE}" "${DETECT_SIGNATURE}" "${CANDIDATES}" "${DETECT_METADATA}"; then
   rm -f "${DETECT_DONE}" "${EVENTS_DONE}" "${CUT_REVIEW_DONE}"
   DETECT=(
-    uv run --no-sync python src/resequence/detect_video_discontinuities.py
+    uv run --no-sync python -m hive_video.resequence.detect_video_discontinuities
     "${RESEQ_PATH}"
     --out "${HV_QC_DIR}"
     --top-n "${TOP_N:-400}"
@@ -107,13 +109,13 @@ hv_require_file "${CANDIDATES}" \
   "Detection output is missing; rerun stage 1 with FORCE=1."
 CANDIDATES_FINGERPRINT="$(hv_file_fingerprint "${CANDIDATES}")"
 EVENTS_SIGNATURE="v2|candidates=${CANDIDATES_FINGERPRINT}|tool=$(hv_file_fingerprint \
-  src/resequence/summarize_jump_events.py)|fps=${FPS:-default}"
+  src/hive_video/resequence/summarize_jump_events.py)|fps=${FPS:-default}"
 EVENTS_SIGNATURE="${EVENTS_SIGNATURE}|max_gap=${MAX_GAP_FRAMES:-default}"
 
 if hv_step_needed "${EVENTS_DONE}" "${EVENTS_SIGNATURE}" "${EVENTS}"; then
   rm -f "${EVENTS_DONE}" "${CUT_REVIEW_DONE}"
   SUMMARIZE=(
-    uv run --no-sync python src/resequence/summarize_jump_events.py
+    uv run --no-sync python -m hive_video.resequence.summarize_jump_events
     --candidates "${CANDIDATES}"
     --out "${EVENTS}"
   )
@@ -128,13 +130,13 @@ hv_require_file "${EVENTS}" \
   "Jump-event summary is missing; rerun stage 1 with FORCE=1."
 EVENTS_FINGERPRINT="$(hv_file_fingerprint "${EVENTS}")"
 CUT_REVIEW_SIGNATURE="v2|events=${EVENTS_FINGERPRINT}|tool=$(hv_file_fingerprint \
-  src/resequence/prepare_cut_review.py)|proposal=single-jump"
+  src/hive_video/resequence/prepare_cut_review.py)|proposal=single-jump"
 
 if hv_step_needed \
     "${CUT_REVIEW_DONE}" "${CUT_REVIEW_SIGNATURE}" "${CUT_PROPOSAL}"; then
   rm -f "${CUT_REVIEW_DONE}"
   hv_time_step "prepare_cut_review" \
-    uv run --no-sync python src/resequence/prepare_cut_review.py \
+    uv run --no-sync python -m hive_video.resequence.prepare_cut_review \
       --events "${EVENTS}" \
       --out "${CUT_PROPOSAL}"
   hv_require_file "${CUT_PROPOSAL}" "Cut-review preparation completed without an output CSV."

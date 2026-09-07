@@ -11,9 +11,12 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from hive_video._binaries import resolve_binary
 
-def parse_args() -> argparse.Namespace:
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence review",
         description=(
             "Build a review MP4 from ranked segment joins. Each join shows a short "
             "clip before the source segment end followed by a short clip after the "
@@ -104,7 +107,7 @@ def parse_args() -> argparse.Namespace:
         default="green",
         help="ffmpeg color name or hex color for the separator clip.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def read_edges(path: Path, rank: int, limit: int | None) -> list[dict]:
@@ -320,7 +323,7 @@ def make_clip(
         vf = f"scale={scale_width}:-2"
         output_options = ["-vf", vf]
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-y",
         "-v",
         "error",
@@ -380,7 +383,7 @@ def make_caption_image(
 def probe_scaled_height(video: Path, scale_width: int) -> int:
     raw = subprocess.check_output(
         [
-            "ffprobe",
+            resolve_binary("ffprobe"),
             "-v",
             "error",
             "-select_streams",
@@ -400,7 +403,7 @@ def probe_scaled_height(video: Path, scale_width: int) -> int:
 
 def make_separator_clip(out_path: Path, duration_s: float, width: int, height: int, color: str) -> None:
     cmd = [
-        "ffmpeg",
+        resolve_binary("ffmpeg"),
         "-y",
         "-v",
         "error",
@@ -427,7 +430,7 @@ def write_concat_list(path: Path, clips: list[Path]) -> None:
 
 def ffmpeg_has_filter(name: str) -> bool:
     result = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-filters"],
+        [resolve_binary("ffmpeg"), "-hide_banner", "-filters"],
         check=True,
         text=True,
         stdout=subprocess.PIPE,
@@ -453,8 +456,8 @@ def write_caption_manifest(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     video = args.video.expanduser().resolve()
     ranked_edges = args.ranked_edges.expanduser().resolve()
     out = args.out.expanduser().resolve()
@@ -636,7 +639,7 @@ def main() -> None:
         concat_list = tmp / "concat.txt"
         write_concat_list(concat_list, clips)
         cmd = [
-            "ffmpeg",
+            resolve_binary("ffmpeg"),
             "-y",
             "-v",
             "error",

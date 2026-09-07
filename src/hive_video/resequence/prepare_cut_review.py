@@ -20,8 +20,9 @@ FIELDNAMES = [
 ]
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="hive-video resequence prepare-cuts",
         description=(
             "Convert jump_events.csv into an editable cut-review CSV. Single-jump "
             "events are proposed with keep=1; multi-jump events remain visible with keep=0."
@@ -29,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--events", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def prepare_rows(events_path: Path) -> list[dict[str, str]]:
@@ -64,8 +65,8 @@ def write_rows(path: Path, rows: list[dict[str, str]]) -> None:
     partial.replace(path)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
     events = args.events.expanduser().resolve()
     out = args.out.expanduser().resolve()
     rows = prepare_rows(events)

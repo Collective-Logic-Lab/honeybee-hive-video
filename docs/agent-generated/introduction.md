@@ -76,9 +76,9 @@ sbatch --array=0-1 --export=ALL,LOCATORS="start3_side0_top start3_side1_top" \
 To grab one file outside slurm:
 
 ```bash
-uv run python src/download/download_raw.py --start 4 --side 1 --panel top \
+uv run hive-video download --start 4 --side 1 --panel top \
     --target /scratch/pdressla/honey-bee/downloads
-uv run python src/download/download_raw.py --list   # everything in the archive
+uv run hive-video download --list   # everything in the archive
 ```
 
 #### 2. Measure before booking wall clock
@@ -124,7 +124,7 @@ review/auto_qc.summary.json
 An `auto_pass` result needs no manual join review. If any join is ambiguous, discontinuous, or unscorable, the video receives `manual_review_required` and Stage 1a creates `review/qc_roll_flagged_joins.mp4` containing only those joins. After inspecting that compact roll, bind the approval to the exact report, flagged table, roll, and captions with the command printed in the Stage 1a log:
 
 ```bash
-uv run --no-sync python src/resequence/diagnostics/approve_manual_join_qc.py create \
+uv run --no-sync hive-video resequence approve create \
   --summary <work-dir>/review/auto_qc.summary.json \
   --out <work-dir>/review/auto_qc.manual_approval.json
 ```
@@ -198,10 +198,10 @@ Work for one video lives under `${SCRATCH_ROOT}/artifacts/resequence/reseq_<key>
 
 Shared setup lives in `src/pipeline/slurm/resequence/common.sh`; override `HIVE_VIDEO_ROOT`, `SCRATCH_ROOT`, or `DOWNLOAD_DIR` there or in the environment. Detection parameters default to the tools' own defaults and can be overridden per submission, for example `--export=ALL,SAMPLE_WIDTH=256,TOP_N=400`.
 
-See `src/resequence/README.md` for the underlying tools and for running the steps by hand.
+See the [resequencing workflow](resequencing.md) for the underlying tools and for running the steps by hand.
 
 ### Organization
 
-The `src` folder has two major submodules and two helper folders. First, the hive videos that we are working with are archived in a disordered state: the sequence of frames cuts to a different part of the video every few minutes. The `resequence` module contains code that applies one algorithm to isolate the individual video segments, and a second algorithm to process those segments into the best identifiable working order.
+The `src/hive_video` folder contains the installable video utilities. The hive videos that we are working with are archived in a disordered state: the sequence of frames cuts to a different part of the video every few minutes. The `hive_video.resequence` package contains code that applies one algorithm to isolate the individual video segments, and a second algorithm to process those segments into the best identifiable working order.
 
 The `analyze` module contains code that attempts to classify and visually separate the bee behaviors in the video.
