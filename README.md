@@ -8,7 +8,7 @@
 
 > This documentation is a work-in-progress
 
-Video-processing and analysis tools for the [https://collective-logic-lab.github.io/](Collective Logic Lab's) honey bee collective behavior research project.
+Video-processing and analysis tools for the [Collective Logic Lab's](https://collective-logic-lab.github.io/) honey bee collective behavior research project.
 
 The current work focuses on comb-building and festoon-related behavior in the "Videos for honey bee lifetime tracking data 2019" dataset published by Smith et al. (2019), with related context from Neubauer et al. (2023), "Honey Bee Drones Are Synchronously Hyperactive inside the Nest." DOIs: [10.17617/3.LLWRWR](https://doi.org/10.17617/3.LLWRWR) for the dataset and [10.1016/j.anbehav.2023.05.018](https://doi.org/10.1016/j.anbehav.2023.05.018) for the paper. The videos are here: [https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LLWRWR](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LLWRWR).
 
