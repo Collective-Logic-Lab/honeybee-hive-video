@@ -75,7 +75,39 @@ hive-video download --locator start4_side1_top --target /data/raw
 
 Resolution may fetch the archive manifest; it does not download video. `--manifest-cache` selects an explicit cache, and `--resolve-only --format sh` retains the `RESEQ_*` assignments used by existing cluster scripts. Transfers retain resumable `.part` files, retry settings, and archive MD5 verification. The inherited downloader renames a byte-complete transfer before checking MD5; a checksum failure returns an error but can leave that destination present. A later call with verification enabled checks it again.
 
-Resequencing is exposed as individual stages. Each stage accepts the arguments of its existing tool; use its `--help` to inspect them.
+### Automatic resequencing (working checkout; awaiting release)
+
+Run the unattended 25 fps hive-video profile in a new output directory:
+
+```bash
+hive-video resequence run --video source.mp4 --out-dir work/example_01 --profile edmond-2019-v1
+```
+
+The command detects cuts, orders segments, and checks joins. An automatic pass writes the archival render and frame map, then the H.264 viewing copy `output/resequenced.mp4`. A flagged result stops with `review/qc_roll_flagged_joins.mp4`. Watch all flagged joins; if acceptable, one command records your approval and finishes:
+
+```bash
+hive-video resequence finish --out-dir work/example_01 --reviewer "Your name" --note "What you checked"
+```
+
+Python calls use the same path:
+
+```python
+from hive_video.resequence.workflow import run_resequence, approve_resequence
+
+result = run_resequence(source, output_dir, profile="edmond-2019-v1")
+# Only after watching and accepting every flagged join:
+result = approve_resequence(output_dir, reviewer="Your name", note="What you checked")
+```
+
+The returned dictionary and `run.json` contain `status` (`complete` or `manual_review_required`), `video`, and `review_video`. Stage logs, settings, software identity, and checksums stay in the run directory. Failures raise and are recorded as `failed`; choose a fresh directory or use the staged tools for recovery. Existing directories are refused. During rendering, write `sea cucumber` to the run's `STOP` file to stop between chunks; this leaves an incomplete run.
+
+Source cuts retain `unreviewed_pilot` provenance, including after join approval. QC checks continuity and ambiguity, not complete source-cut detection or absolute chronology. An unacceptable join needs correction through the [staged workflow](resequencing.md), not approval. The existing renderer omits the nominal final source frame. See [HV-P003](METHODS.md#hv-p003-local-automatic-resequencing-with-one-join-review-boundary) for fixed settings and limits.
+
+Until release, install the working checkout with `python -m pip install -e '.[resequence]'` from its root. Restart an already running notebook kernel after changing installations.
+
+### Individual stages
+
+Each stage accepts the arguments of its existing tool; use its `--help` to inspect them.
 
 | Stage | Purpose | Module under `hive_video.resequence` |
 | --- | --- | --- |
@@ -91,7 +123,7 @@ Resequencing is exposed as individual stages. Each stage accepts the arguments o
 | `render` | Validate join QC and render from the validated order | `cli` gate, then `reassemble_video_from_segments` |
 | `compress` | Create a smaller sharing derivative | `compress_resequenced` |
 
-Source-cut inspection remains a human step between `prepare-cuts` and `build-segments`. The `render` command requires the QC report, exact source, detector metadata, segment table, and complete order:
+In the staged workflow, source-cut inspection is a human step between `prepare-cuts` and `build-segments`. The `render` command requires the QC report, exact source, detector metadata, segment table, and complete order:
 
 ```bash
 hive-video resequence render \
