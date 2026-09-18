@@ -1,4 +1,4 @@
-"""Explicit stage commands for the portable resequencing tools."""
+"""Automatic workflows and explicit stages for portable resequencing."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="hive-video resequence",
         description=(
-            "Run one explicit resequencing stage. Render requires an input-bound QC decision "
+            "Run the automatic workflow or one explicit resequencing stage. Render requires an input-bound QC decision "
             "and, when flagged, a current manual approval. Stage parameters and diagnostic "
             "helper functions preserve the established method. Heavy stages require "
             "the hive-video[resequence] extra."
@@ -80,6 +80,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "stage",
         choices=(
+            "run",
+            "finish",
             "detect",
             "summarize",
             "prepare-cuts",
@@ -96,7 +98,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("stage_args", nargs=argparse.REMAINDER, help="Arguments for that stage.")
     args = parser.parse_args(argv)
     try:
-        if args.stage == "detect":
+        if args.stage in {"run", "finish"}:
+            from .workflow import main as run
+            return run([args.stage, *args.stage_args])
+        elif args.stage == "detect":
             from .detect_video_discontinuities import main as run
         elif args.stage == "summarize":
             from .summarize_jump_events import main as run

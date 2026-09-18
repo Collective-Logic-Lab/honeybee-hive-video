@@ -195,7 +195,7 @@ class CompressionTests(unittest.TestCase):
 
 class ExactOrderReviewTests(unittest.TestCase):
     def test_small_green_flash_render_writes_video_and_captions(self) -> None:
-        source = Path(__file__).parents[1] / "data/raw/start04_sample_5s.mp4"
+        source = Path(__file__).parents[1] / "data/examples/start04_sample_5s.mp4"
         self.assertTrue(source.is_file())
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -443,7 +443,7 @@ class ExactOrderReviewTests(unittest.TestCase):
         )
 
     def test_flagged_only_review_renders_just_the_requested_join(self) -> None:
-        source = Path(__file__).parents[1] / "data/raw/start04_sample_5s.mp4"
+        source = Path(__file__).parents[1] / "data/examples/start04_sample_5s.mp4"
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             segments = root / "segments.csv"
@@ -746,7 +746,7 @@ class AutomaticJoinQCTests(unittest.TestCase):
             )
 
     def test_cli_run_writes_both_csvs_and_summary(self) -> None:
-        source = Path(__file__).parents[1] / "data/raw/start04_sample_5s.mp4"
+        source = Path(__file__).parents[1] / "data/examples/start04_sample_5s.mp4"
         info = detect_video_discontinuities.probe_video(source)
         width, height = detect_video_discontinuities.comparison_size(info, 64)
         with tempfile.TemporaryDirectory() as tmpdir:
